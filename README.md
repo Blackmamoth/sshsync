@@ -32,7 +32,7 @@ cd sshsync
 pipx install .
 ```
 
-## ## Usage 🚀
+## Usage 🚀
 
 Basic usage:
 
