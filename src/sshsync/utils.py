@@ -7,7 +7,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 from sshsync.config import Config
-from sshsync.schemas import Host
+from sshsync.schemas import Host, SSHResult
 
 console = Console()
 
@@ -109,7 +109,7 @@ def add_host() -> Host:
     )
 
 
-def list_configuration():
+def list_configuration() -> None:
     """
     Display the current SSH configuration including hosts and groups in rich-formatted tables.
 
@@ -161,3 +161,29 @@ def list_configuration():
         console.print(host_table)
     else:
         console.print("[bold yellow]No hosts configured.[/bold yellow]")
+
+
+def print_ssh_results(results: list[SSHResult]) -> None:
+    """
+    Display SSH command execution results in a formatted table.
+
+    Args:
+        results (list[SSHResult | BaseException]): A list containing the results of SSH command
+        executions, which may include `SSHResult` objects or exceptions from failed tasks.
+
+    Returns:
+        None: This function prints the results to the console and does not return a value.
+    """
+
+    table = Table(title="SSHSYNC Results")
+    table.add_column("Host", style="cyan", no_wrap=True)
+    table.add_column("Status", style="green")
+    table.add_column("Output", style="magenta")
+
+    for result in results:
+        if result is not None and not isinstance(result, BaseException):
+            status = "[green]Success[/green]" if result.success else "[red]Failed[/red]"
+            output = f"{result.output.strip()}\n" if result.output else "-"
+            table.add_row(result.host, status, str(output))
+
+    console.print(table)

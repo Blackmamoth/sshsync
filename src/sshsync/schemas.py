@@ -1,6 +1,8 @@
 from dataclasses import asdict, dataclass
 from enum import Enum
 
+from asyncssh import BytesOrStr
+
 
 class Target(str, Enum):
     """
@@ -57,3 +59,11 @@ class YamlConfig:
                   and values are the corresponding attribute values.
         """
         return asdict(self)
+
+
+@dataclass
+class SSHResult:
+    host: str
+    exit_status: int | None
+    success: bool
+    output: BytesOrStr | None
