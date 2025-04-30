@@ -1,11 +1,12 @@
 [project]
 name = "sshsync"
 version = "0.1.0"
-description = "Add your description here"
+description = "sshsync is a CLI tool to run shell commands across multiple servers via SSH, either on specific groups or all servers. Upcoming features include file push/pull support."
 readme = "README.md"
 authors = [
     { name = "Blackmamoth", email = "blackmamoth83@gmail.com" }
 ]
+license = { text = "MIT" }
 requires-python = ">=3.12"
 dependencies = [
     "asyncssh>=2.20.0",
@@ -20,3 +21,7 @@ sshsync = "sshsync:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[project.urls]
+Homepage = "https://github.com/Blackmamoth/sshsync"
+Issues = "https://github.com/Blackmamoth/sshsync/issues"
