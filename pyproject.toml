@@ -1,0 +1,21 @@
+[project]
+name = "sshsync"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Blackmamoth", email = "blackmamoth83@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pyyaml>=6.0.2",
+    "rich>=14.0.0",
+    "typer>=0.15.3",
+]
+
+[project.scripts]
+sshsync = "sshsync:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
