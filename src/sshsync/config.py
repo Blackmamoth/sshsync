@@ -33,6 +33,14 @@ class Config:
 
         self.config = self._load_config()
 
+    @property
+    def hosts(self) -> list[Host]:
+        return self.config.hosts
+
+    @property
+    def groups(self) -> list[str]:
+        return self.config.groups
+
     def _default_config(self) -> YamlConfig:
         return YamlConfig(hosts=[], groups=[])
 
@@ -85,12 +93,12 @@ class Config:
         Args:
             new_host (Host): The host to add.
         """
-        existing_hosts = {host.address for host in self.config.hosts}
+        existing_hosts = {host.address for host in self.hosts}
         if new_host.address not in existing_hosts:
             self.config.hosts.append(new_host)
 
         new_groups = {g.strip() for g in new_host.groups if g.strip()}
-        existing_groups = set(self.config.groups)
+        existing_groups = set(self.groups)
         self.config.groups.extend(sorted(new_groups - existing_groups))
 
         self._save_yaml()
@@ -103,10 +111,10 @@ class Config:
             groups (list[str]): Groups to add.
         """
         new_groups = {g.strip() for g in groups if g.strip()}
-        existing_groups = set(self.config.groups)
+        existing_groups = set(self.groups)
 
         self.config.groups.extend(sorted(new_groups - existing_groups))
         self._save_yaml()
 
     def get_hosts_by_group(self, group: str) -> list[Host]:
-        return [host for host in self.config.hosts if group in host.groups]
+        return [host for host in self.hosts if group in host.groups]

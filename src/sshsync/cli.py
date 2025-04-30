@@ -2,7 +2,7 @@ import typer
 
 from sshsync.config import Config
 from sshsync.schemas import Target
-from sshsync.utils import add_group, add_host
+from sshsync.utils import add_group, add_host, list_configuration
 
 app = typer.Typer(
     name="sshsync",
@@ -12,7 +12,7 @@ app = typer.Typer(
 
 @app.command()
 def add(
-    target: Target = typer.Argument(..., help="Target type to add (host or group)")
+    target: Target = typer.Argument(..., help="Target type to add (host or group)"),
 ):
     """
     Add a host or group to the configuration.
@@ -28,5 +28,16 @@ def add(
 
 
 @app.command()
+def list():
+    """
+    List all configured host groups and hosts.
+    """
+    list_configuration()
+
+
+@app.command(help="Display the current version of sshsync.")
 def version():
+    """
+    Display the current version.
+    """
     typer.echo("v0.1.0")

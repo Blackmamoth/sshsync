@@ -107,3 +107,57 @@ def add_host() -> Host:
         port=port,
         groups=groups,
     )
+
+
+def list_configuration():
+    """
+    Display the current SSH configuration including hosts and groups in rich-formatted tables.
+
+    This function retrieves the loaded YAML configuration using the `Config` class,
+    and displays:
+      - A list of all defined group names.
+      - A list of all configured hosts with details like address, username, port, SSH key path,
+        and group memberships.
+
+    Uses the `rich` library to print visually styled tables to the console.
+
+    Returns:
+        None: This function prints the results to the console and does not return a value.
+    """
+    config = Config()
+    console = Console()
+
+    hosts = config.hosts
+    groups = config.groups
+
+    if groups:
+        group_table = Table(title="Configured Groups")
+        group_table.add_column("Group Name", style="cyan", no_wrap=True)
+
+        for group_name in groups:
+            group_table.add_row(group_name)
+
+        console.print(group_table)
+    else:
+        console.print("[bold yellow]No groups configured.[/bold yellow]")
+
+    if hosts:
+        host_table = Table(title="Configured Hosts")
+        host_table.add_column("Host", style="cyan", no_wrap=True)
+        host_table.add_column("Username", style="green")
+        host_table.add_column("Port", style="blue")
+        host_table.add_column("SSH Key", style="magenta")
+        host_table.add_column("Groups", style="white")
+
+        for host in hosts:
+            host_table.add_row(
+                host.address,
+                host.username,
+                str(host.port),
+                host.ssh_key_path,
+                ", ".join(host.groups) if host.groups else "-",
+            )
+
+        console.print(host_table)
+    else:
+        console.print("[bold yellow]No hosts configured.[/bold yellow]")
