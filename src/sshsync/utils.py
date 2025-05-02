@@ -2,7 +2,9 @@ import ipaddress
 import socket
 from pathlib import Path
 
+import typer
 from rich.console import Console
+from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 
@@ -82,6 +84,25 @@ def get_valid_port_number() -> int:
         )
 
 
+def is_host_reachable(host: str, port: int = 80, timeout: int = 2) -> bool:
+    """
+    Check if a host is reachable by attempting to establish a TCP connection.
+
+    Args:
+        host (str): The hostname or IP address to check.
+        port (int, optional): The port to attempt to connect to. Defaults to 80.
+        timeout (int, optional): Timeout in seconds for the connection attempt. Defaults to 2.
+
+    Returns:
+        bool: True if the host is reachable on the specified port, False otherwise.
+    """
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except (socket.timeout, socket.error):
+        return False
+
+
 def add_group(
     prompt_text: str = "Enter the name(s) of the new group(s) (comma-separated)",
 ) -> list[str]:
@@ -109,7 +130,7 @@ def add_host() -> Host:
     )
 
 
-def list_configuration() -> None:
+def list_configuration(with_status: bool) -> None:
     """
     Display the current SSH configuration including hosts and groups in rich-formatted tables.
 
@@ -117,7 +138,7 @@ def list_configuration() -> None:
     and displays:
       - A list of all defined group names.
       - A list of all configured hosts with details like address, username, port, SSH key path,
-        and group memberships.
+        group memberships and optionally host reachability.
 
     Uses the `rich` library to print visually styled tables to the console.
 
@@ -125,7 +146,6 @@ def list_configuration() -> None:
         None: This function prints the results to the console and does not return a value.
     """
     config = Config()
-    console = Console()
 
     hosts = config.hosts
     groups = config.groups
@@ -148,15 +168,24 @@ def list_configuration() -> None:
         host_table.add_column("Port", style="blue")
         host_table.add_column("SSH Key", style="magenta")
         host_table.add_column("Groups", style="white")
+        if with_status:
+            host_table.add_column("Status")
 
         for host in hosts:
-            host_table.add_row(
+            row = [
                 host.address,
                 host.username,
                 str(host.port),
                 host.ssh_key_path,
                 ", ".join(host.groups) if host.groups else "-",
-            )
+            ]
+            if with_status:
+                row.append(
+                    "[bold green]Up[/bold green]"
+                    if is_host_reachable(host.address, host.port)
+                    else "[bold red]Down[/bold red]"
+                )
+            host_table.add_row(*row)
 
         console.print(host_table)
     else:
@@ -187,3 +216,27 @@ def print_ssh_results(results: list[SSHResult]) -> None:
             table.add_row(result.host, status, str(output))
 
     console.print(table)
+
+
+def print_error(message: str, exit: bool = False) -> None:
+    """
+    Display an error message in a styled panel and optionally exit the program.
+
+    Args:
+        message (str): The error message to display.
+        exit (bool, optional): If True, exits the program with status code 1. Defaults to False.
+
+    Raises:
+        typer.Exit: If exit is True, the function raises a typer.Exit with code 1.
+    """
+    console.print(
+        Panel(
+            message,
+            title="Error",
+            title_align="left",
+            border_style="red",
+        ),
+        style="bold white",
+    )
+    if exit:
+        raise typer.Exit(1)

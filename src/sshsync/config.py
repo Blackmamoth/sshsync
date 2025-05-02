@@ -19,13 +19,8 @@ class Config:
     def __init__(self) -> None:
         """
         Initializes the configuration, ensuring the config file exists.
-
-        Raises:
-            ConfigError: If the home directory cannot be accessed.
         """
         home_dir = Path.home()
-        if not home_dir:
-            raise ConfigError("Cannot access home directory of the current user")
 
         self.config_path = Path(home_dir).joinpath(".config", "sshsync", "config.yml")
 
@@ -53,19 +48,16 @@ class Config:
 
     def _load_config(self) -> YamlConfig:
         """
-        Loads configuration from the YAML file or creates one if missing.
+        Loads configuration from the YAML.
 
         Returns:
             YamlConfig: Loaded or default configuration.
         """
         with open(self.config_path) as f:
             try:
-                config: dict | None = yaml.safe_load(f)
+                config: dict = yaml.safe_load(f)
             except yaml.YAMLError as e:
                 raise ConfigError(f"Failed to parse configuration file: {e}")
-
-            if config is None:
-                return self._default_config()
 
             hosts: list[Host] = [
                 Host(**host)
@@ -117,4 +109,23 @@ class Config:
         self._save_yaml()
 
     def get_hosts_by_group(self, group: str) -> list[Host]:
+        """Return all hosts that belong to the specified group.
+
+        Args:
+            group (str): Group name to filter hosts by.
+
+        Returns:
+            list[Host]: Hosts that are members of the group.
+        """
         return [host for host in self.hosts if group in host.groups]
+
+    def get_host_by_name(self, name: str) -> Host | None:
+        """Find a host by its address.
+
+        Args:
+            name (str): Host address to search for.
+
+        Returns:
+            Host | None: The matching host, or None if not found.
+        """
+        return next((h for h in self.config.hosts if h.address == name), None)

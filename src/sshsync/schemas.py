@@ -17,6 +17,19 @@ class Target(str, Enum):
     GROUP = "group"
 
 
+class FileTransferAction(str, Enum):
+    """
+    Enum representing the types of transfer actions.
+
+    Attributes:
+        PUSH (TransferType): Indicates a push action or file action.
+        PULL (TransferType): Indicates a pull action or file download action.
+    """
+
+    PUSH = "push"
+    PULL = "pull"
+
+
 @dataclass
 class Host:
     """
@@ -63,6 +76,16 @@ class YamlConfig:
 
 @dataclass
 class SSHResult:
+    """
+    Stores the result of an SSH operation.
+
+    Attributes:
+        host (str): The remote host's address or hostname.
+        exit_status (int | None): The exit status of the operation (None if failed).
+        success (bool): Whether the operation was successful.
+        output (BytesOrStr | None): The output of the operation (None if no output).
+    """
+
     host: str
     exit_status: int | None
     success: bool
