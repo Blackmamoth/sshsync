@@ -235,4 +235,4 @@ def version():
     """
     Display the current version.
     """
-    typer.echo("v0.2.0")
+    typer.echo("v0.3.0")
