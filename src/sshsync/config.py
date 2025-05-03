@@ -55,9 +55,12 @@ class Config:
         """
         with open(self.config_path) as f:
             try:
-                config: dict = yaml.safe_load(f)
+                config: dict | None = yaml.safe_load(f)
             except yaml.YAMLError as e:
                 raise ConfigError(f"Failed to parse configuration file: {e}")
+
+            if config is None:
+                return self._default_config()
 
             hosts: list[Host] = [
                 Host(**host)

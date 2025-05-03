@@ -118,6 +118,8 @@ class SSHClient:
         Returns:
             SSHResult: Result of the file transfer.
         """
+        if local_path.endswith("/") and Path(local_path).is_dir():
+            local_path = local_path.rstrip("/")
         try:
             async with asyncssh.connect(
                 host.address,
@@ -132,7 +134,7 @@ class SSHClient:
                     host=host.address,
                     exit_status=EX_OK,
                     success=True,
-                    output=f"File sent successfully to {host.address}:{remote_path}",
+                    output=f"Successfully sent to {host.address}:{remote_path}",
                 )
         except asyncssh.PermissionDenied as e:
             return SSHResult(
@@ -196,7 +198,7 @@ class SSHClient:
                     host=host.address,
                     exit_status=EX_OK,
                     success=True,
-                    output=f"File downloaded successfully from {host.address}:{remote_path}",
+                    output=f"Downloaded successfully from {host.address}:{remote_path}",
                 )
         except asyncssh.PermissionDenied as e:
             return SSHResult(

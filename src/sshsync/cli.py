@@ -6,7 +6,7 @@ from sshsync.schemas import FileTransferAction, Target
 from sshsync.utils import (
     add_group,
     add_host,
-    check_file_exists,
+    check_path_exists,
     list_configuration,
     print_error,
     print_ssh_results,
@@ -86,7 +86,7 @@ def add(
         config.add_group(add_group())
 
 
-@app.command(help="Push a file to remote hosts using SSH.")
+@app.command(help="Push a file to remote hosts using SCP.")
 def push(
     local_path: str = typer.Argument(
         ..., help="The local path to the file or directory to be pushed."
@@ -122,7 +122,7 @@ def push(
             True,
         )
 
-    if not check_file_exists(local_path):
+    if not check_path_exists(local_path):
         print_error(f"File ({local_path}) does not exist", True)
 
     config = Config()
@@ -135,9 +135,7 @@ def push(
         else (
             config.get_hosts_by_group(group)
             if group
-            else [host_obj]
-            if host_obj is not None
-            else []
+            else [host_obj] if host_obj is not None else []
         )
     )
 
@@ -151,7 +149,7 @@ def push(
     print_ssh_results(results)
 
 
-@app.command(help="Pull a file from remote hosts using SSH.")
+@app.command(help="Pull a file from remote hosts using SCP.")
 def pull(
     remote_path: str = typer.Argument(
         ..., help="The remote path to the file or directory to be pushed."
@@ -165,7 +163,7 @@ def pull(
     ),
     host: str = typer.Option("", "--host", help="Pull from a single specific host."),
     recurse: bool = typer.Option(
-        False, "--recurse", "Recursively pull a directory and its contents."
+        False, "--recurse", help="Recursively pull a directory and its contents."
     ),
 ):
     """
@@ -199,9 +197,7 @@ def pull(
         else (
             config.get_hosts_by_group(group)
             if group
-            else [host_obj]
-            if host_obj is not None
-            else []
+            else [host_obj] if host_obj is not None else []
         )
     )
 

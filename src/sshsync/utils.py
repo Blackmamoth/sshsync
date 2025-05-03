@@ -46,6 +46,11 @@ def check_file_exists(file_path: str) -> bool:
     return path.exists() and path.is_file()
 
 
+def check_path_exists(path: str) -> bool:
+    """Check if the given path exists"""
+    return Path(path).exists()
+
+
 def get_valid_file_path() -> str:
     """Prompt the user to enter a valid file path"""
     while True:
