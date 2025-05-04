@@ -1,3 +1,5 @@
+import importlib.metadata
+
 import typer
 
 from sshsync.client import SSHClient
@@ -216,7 +218,7 @@ def pull(
 
 
 @app.command(help="List all configured host groups and hosts")
-def list(
+def ls(
     with_status: bool = typer.Option(
         False, "--with-status", help="Show whether a host is reachable"
     ),
@@ -235,4 +237,4 @@ def version():
     """
     Display the current version.
     """
-    typer.echo("v0.3.0")
+    typer.echo(importlib.metadata.version("sshsync"))

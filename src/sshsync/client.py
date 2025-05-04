@@ -1,5 +1,5 @@
 import asyncio
-from os import EX_OK
+from os import EX_OK, environ
 from pathlib import Path
 
 import asyncssh
@@ -12,6 +12,23 @@ class SSHClient:
     def __init__(self) -> None:
         """Initialize the SSHClient with configuration data from the config file."""
         self.config = Config()
+
+    def _is_key_encrypted(self, key_path: str) -> bool:
+        """Check if the given ssh key is protected by a passphrase
+
+        Returns:
+            bool: True if the ssh key is encrypted, False otherwise
+        """
+        try:
+            asyncssh.read_private_key(key_path, passphrase=None)
+            return False
+        except asyncssh.KeyEncryptionError:
+            return True
+        except ValueError:
+            return True
+        except Exception as e:
+            print(f"Error reading key: {e}")
+            raise
 
     async def _run_command_across_hosts(
         self, cmd: str, hosts: list[Host]
@@ -41,12 +58,14 @@ class SSHClient:
             SSHResult: The result of the command execution.
         """
         try:
-            async with asyncssh.connect(
-                host.address,
-                username=host.username,
-                client_keys=[host.ssh_key_path],
-                port=host.port,
-            ) as conn:
+            conn_kwargs = {
+                "host": host.address,
+                "username": host.username,
+                "port": host.port,
+            }
+            if not self._is_key_encrypted(host.ssh_key_path):
+                conn_kwargs["client_keys"] = [host.ssh_key_path]
+            async with asyncssh.connect(**conn_kwargs) as conn:
                 result = await conn.run(cmd, check=True, timeout=self.timeout)
                 return SSHResult(
                     host=host.address,
@@ -56,6 +75,13 @@ class SSHClient:
                         result.stdout if result.exit_status == EX_OK else result.stderr
                     ),
                 )
+        except asyncssh.KeyEncryptionError as e:
+            return SSHResult(
+                host=host.address,
+                exit_status=None,
+                success=False,
+                output=f"Encrypted private key, passphrase required: {e}",
+            )
         except asyncssh.PermissionDenied as e:
             return SSHResult(
                 host=host.address,
@@ -120,13 +146,15 @@ class SSHClient:
         """
         if local_path.endswith("/") and Path(local_path).is_dir():
             local_path = local_path.rstrip("/")
+        conn_kwargs = {
+            "host": host.address,
+            "username": host.username,
+            "port": host.port,
+        }
+        if not self._is_key_encrypted(host.ssh_key_path):
+            conn_kwargs["client_keys"] = [host.ssh_key_path]
         try:
-            async with asyncssh.connect(
-                host.address,
-                username=host.username,
-                client_keys=[host.ssh_key_path],
-                port=host.port,
-            ) as conn:
+            async with asyncssh.connect(**conn_kwargs) as conn:
                 await asyncssh.scp(
                     local_path, (conn, remote_path), recurse=self.recurse
                 )
@@ -183,13 +211,15 @@ class SSHClient:
         if not local_dir.exists():
             local_dir.mkdir(parents=True, exist_ok=True)
 
+        conn_kwargs = {
+            "host": host.address,
+            "username": host.username,
+            "port": host.port,
+        }
+        if not self._is_key_encrypted(host.ssh_key_path):
+            conn_kwargs["client_keys"] = [host.ssh_key_path]
         try:
-            async with asyncssh.connect(
-                host.address,
-                username=host.username,
-                client_keys=[host.ssh_key_path],
-                port=host.port,
-            ) as conn:
+            async with asyncssh.connect(**conn_kwargs) as conn:
                 await asyncssh.scp(
                     (conn, remote_path), unique_path, recurse=self.recurse
                 )

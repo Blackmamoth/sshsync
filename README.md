@@ -2,6 +2,8 @@
 
 **sshsync** is a fast, minimal CLI tool to run shell commands across multiple remote servers via SSH. Easily target all servers or just a specific group, great for sysadmins, developers, and automation workflows.
 
+> **IMPORTANT**: sshsync uses asyncssh for SSH connections. If you use passphrase-protected SSH keys, you MUST have your ssh-agent running with the keys added via ssh-add. sshsync will rely on SSH agent forwarding to authenticate with protected keys.
+
 ## Features ✨
 
 - 🔁 Run shell commands on **all hosts** or **specific groups**
@@ -156,7 +158,7 @@ sshsync add group
 #### List Configured Hosts and Groups
 
 ```bash
-sshsync list [OPTIONS]
+sshsync ls [OPTIONS]
 ```
 
 **Options:**
@@ -167,7 +169,7 @@ sshsync list [OPTIONS]
 
 ```bash
 # List all hosts with their connection status
-sshsync list --with-status
+sshsync ls --with-status
 ```
 
 #### Show Version
@@ -232,7 +234,7 @@ sshsync push --group production --recurse ./configs/ /etc/app/configs/
 sshsync pull --group web-servers /var/log/nginx/error.log ./logs/
 
 # Check if hosts are reachable
-sshsync list --with-status
+sshsync ls --with-status
 ```
 
 ## Upcoming Features 🛣️
@@ -240,6 +242,7 @@ sshsync list --with-status
 - Initial implementation of execution history and logging
 - Support for additional authentication methods
 - Performance optimizations for large server fleets
+- Automated versioning using release-please for streamlined releases
 
 ## License 📄
 
