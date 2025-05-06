@@ -147,7 +147,7 @@ def push(
         )
 
     if not check_path_exists(local_path):
-        print_error(f"File ({local_path}) does not exist", True)
+        print_error(f"Path ({local_path}) does not exist", True)
 
     config = Config()
     ssh_client = SSHClient()
@@ -159,7 +159,9 @@ def push(
         else (
             config.get_hosts_by_group(group)
             if group
-            else [host_obj] if host_obj is not None else []
+            else [host_obj]
+            if host_obj is not None
+            else []
         )
     )
 
@@ -211,6 +213,9 @@ def pull(
             True,
         )
 
+    if not check_path_exists(local_path):
+        print_error(f"Path ({local_path}) does not exist", True)
+
     config = Config()
     ssh_client = SSHClient()
 
@@ -221,7 +226,9 @@ def pull(
         else (
             config.get_hosts_by_group(group)
             if group
-            else [host_obj] if host_obj is not None else []
+            else [host_obj]
+            if host_obj is not None
+            else []
         )
     )
 

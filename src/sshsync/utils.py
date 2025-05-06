@@ -13,15 +13,9 @@ from sshsync.schemas import SSHResult
 console = Console()
 
 
-def check_file_exists(file_path: str) -> bool:
-    """Check if the given path exists and is a valid file"""
-    path = Path(file_path)
-    return path.exists() and path.is_file()
-
-
 def check_path_exists(path: str) -> bool:
     """Check if the given path exists"""
-    return Path(path).exists()
+    return Path(path).expanduser().exists()
 
 
 def is_host_reachable(host: str, port: int = 80, timeout: int = 2) -> bool:
@@ -41,15 +35,6 @@ def is_host_reachable(host: str, port: int = 80, timeout: int = 2) -> bool:
             return True
     except (socket.timeout, socket.error):
         return False
-
-
-def add_group(
-    prompt_text: str = "Enter the name(s) of the new group(s) (comma-separated)",
-) -> list[str]:
-    """Prompt the user for new groups and return a list[str]"""
-    group_input = Prompt.ask(prompt_text)
-    groups = [group.strip() for group in group_input.split(",")]
-    return groups
 
 
 def add_hosts_to_group(group: str) -> list[str]:
