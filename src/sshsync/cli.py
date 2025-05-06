@@ -4,13 +4,14 @@ import typer
 
 from sshsync.client import SSHClient
 from sshsync.config import Config
-from sshsync.schemas import FileTransferAction, Target
+from sshsync.schemas import FileTransferAction
 from sshsync.utils import (
-    add_group,
-    add_host,
+    add_hosts_to_group,
+    assign_groups_to_hosts,
     check_path_exists,
     list_configuration,
     print_error,
+    print_message,
     print_ssh_results,
 )
 
@@ -20,7 +21,7 @@ app = typer.Typer(
 )
 
 
-@app.command(help="Run a shell command on all configured hosts concurrently")
+@app.command(help="Run a shell command on all configured hosts concurrently.")
 def all(
     cmd: str = typer.Argument(..., help="The shell command to execute on all hosts."),
     timeout: int = typer.Option(
@@ -46,7 +47,7 @@ def all(
 
 
 @app.command(
-    help="Run a shell command on all hosts within the specified group concurrently"
+    help="Run a shell command on all hosts within the specified group concurrently."
 )
 def group(
     name: str = typer.Argument(..., help="Name of the host group to target."),
@@ -71,21 +72,42 @@ def group(
     print_ssh_results(results)
 
 
-@app.command(help="Add a host or group to the configuration")
-def add(
-    target: Target = typer.Argument(..., help="Target type to add (host or group)"),
-):
+@app.command(help="Add hosts to a specified group.")
+def gadd(group: str):
     """
-    Add a host or group to the configuration.
+    Add one or more hosts to the specified group.
 
     Args:
-        target (Target): The type of target to add (host or group).
+        group (str): The group to add hosts to.
     """
     config = Config()
-    if target == Target.HOST:
-        config.add_host(add_host())
-    else:
-        config.add_group(add_group())
+
+    hosts = add_hosts_to_group(group)
+
+    if not hosts:
+        return print_error("No hosts provided")
+
+    config.add_hosts_to_group(group, hosts)
+    print_message(f"Hosts added to group {group}")
+
+
+@app.command(
+    help="Prompt for group assignments for all ungrouped hosts and update the config."
+)
+def sync():
+    """
+    Prompt for group assignments for all ungrouped hosts and update the config.
+    """
+    config = Config()
+
+    hosts = config.get_ungrouped_hosts()
+    if not hosts:
+        return print_message("All hosts are already assigned to groups")
+
+    host_group_mapping = assign_groups_to_hosts(hosts)
+
+    config.assign_groups_to_hosts(host_group_mapping)
+    print_message("All ungrouped hosts have been assigned to the specified groups")
 
 
 @app.command(help="Push a file to remote hosts using SCP.")
@@ -141,7 +163,7 @@ def push(
         )
     )
 
-    if len(hosts) == 0:
+    if not hosts:
         return print_error("Invalid host or group")
 
     results = ssh_client.begin_transfer(
@@ -203,7 +225,7 @@ def pull(
         )
     )
 
-    if len(hosts) == 0:
+    if not hosts:
         return print_error("Invalid host or group")
 
     results = ssh_client.begin_transfer(
@@ -217,7 +239,7 @@ def pull(
     print_ssh_results(results)
 
 
-@app.command(help="List all configured host groups and hosts")
+@app.command(help="List all configured host groups and hosts.")
 def ls(
     with_status: bool = typer.Option(
         False, "--with-status", help="Show whether a host is reachable"

@@ -4,19 +4,6 @@ from enum import Enum
 from asyncssh import BytesOrStr
 
 
-class Target(str, Enum):
-    """
-    Enum representing the types of configuration targets.
-
-    Attributes:
-        HOST (TargetType): Indicates a host entry in the configuration.
-        GROUP (TargetType): Indicates a group entry in the configuration.
-    """
-
-    HOST = "host"
-    GROUP = "group"
-
-
 class FileTransferAction(str, Enum):
     """
     Enum representing the types of transfer actions.
@@ -36,15 +23,17 @@ class Host:
     Represents a host configuration with connection and grouping details.
 
     Attributes:
+        alias (str): The alias used instead of IP address of hostname of the host.
         address (str): The IP address or hostname of the host.
-        ssh_key_path (str): The file path to the SSH private key used for authentication.
+        identity_file (str): The file path to the SSH private key used for authentication.
         username (str): The username used to connect to the host.
         port (int): The SSH port used to connect to the host (typically 22).
         groups (list[str]): A list of group names that this host belongs to.
     """
 
+    alias: str
     address: str
-    ssh_key_path: str
+    identity_file: str
     username: str
     port: int
     groups: list[str]
@@ -56,12 +45,10 @@ class YamlConfig:
     Represents the YAML configuration containing a list of hosts and groups.
 
     Attributes:
-        hosts (list[HostType]): A list of `HostType` objects, each representing a host in the configuration.
-        groups (list[str]): A list of group names.
+        groups (dict[str, list[str]]): A mapping of group names to lists of host aliases.
     """
 
-    hosts: list[Host]
-    groups: list[str]
+    groups: dict[str, list[str]]
 
     def as_dict(self) -> dict:
         """

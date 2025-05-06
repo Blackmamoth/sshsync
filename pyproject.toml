@@ -12,6 +12,7 @@ dependencies = [
     "asyncssh>=2.20.0",
     "pyyaml>=6.0.2",
     "rich>=14.0.0",
+    "sshconf>=0.2.7",
     "typer>=0.15.3",
 ]
 

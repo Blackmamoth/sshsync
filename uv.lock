@@ -245,6 +245,15 @@ wheels = [
 ]
 
 [[package]]
+name = "sshconf"
+version = "0.2.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b7/8d/6fbc3764da5e883484bf71ae7bb5d07a03f62f4c1d60f5951708584623e0/sshconf-0.2.7.tar.gz", hash = "sha256:b8bb3d74ba096696a96d8743b8a9188150462e8188386c995f69af3c104c0fa0", size = 11708 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/29/0d/1b6203af0c2c6fe2b161bdca63e751e2324255f4edb3da2f684bffe2b583/sshconf-0.2.7-py3-none-any.whl", hash = "sha256:17fb88c26bdb8e81eb9c1450ff4c0ae1679ea4ee93d2cc1f731034d8c44622f6", size = 6974 },
+]
+
+[[package]]
 name = "sshsync"
 version = "0.4.0"
 source = { editable = "." }
@@ -252,6 +261,7 @@ dependencies = [
     { name = "asyncssh" },
     { name = "pyyaml" },
     { name = "rich" },
+    { name = "sshconf" },
     { name = "typer" },
 ]
 
@@ -260,6 +270,7 @@ requires-dist = [
     { name = "asyncssh", specifier = ">=2.20.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "rich", specifier = ">=14.0.0" },
+    { name = "sshconf", specifier = ">=0.2.7" },
     { name = "typer", specifier = ">=0.15.3" },
 ]
 

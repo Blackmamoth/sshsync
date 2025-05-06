@@ -1,5 +1,5 @@
 import asyncio
-from os import EX_OK, environ
+from os import EX_OK
 from pathlib import Path
 
 import asyncssh
@@ -63,8 +63,8 @@ class SSHClient:
                 "username": host.username,
                 "port": host.port,
             }
-            if not self._is_key_encrypted(host.ssh_key_path):
-                conn_kwargs["client_keys"] = [host.ssh_key_path]
+            if not self._is_key_encrypted(host.identity_file):
+                conn_kwargs["client_keys"] = [host.identity_file]
             async with asyncssh.connect(**conn_kwargs) as conn:
                 result = await conn.run(cmd, check=True, timeout=self.timeout)
                 return SSHResult(
@@ -151,8 +151,8 @@ class SSHClient:
             "username": host.username,
             "port": host.port,
         }
-        if not self._is_key_encrypted(host.ssh_key_path):
-            conn_kwargs["client_keys"] = [host.ssh_key_path]
+        if not self._is_key_encrypted(host.identity_file):
+            conn_kwargs["client_keys"] = [host.identity_file]
         try:
             async with asyncssh.connect(**conn_kwargs) as conn:
                 await asyncssh.scp(
@@ -216,8 +216,8 @@ class SSHClient:
             "username": host.username,
             "port": host.port,
         }
-        if not self._is_key_encrypted(host.ssh_key_path):
-            conn_kwargs["client_keys"] = [host.ssh_key_path]
+        if not self._is_key_encrypted(host.identity_file):
+            conn_kwargs["client_keys"] = [host.identity_file]
         try:
             async with asyncssh.connect(**conn_kwargs) as conn:
                 await asyncssh.scp(

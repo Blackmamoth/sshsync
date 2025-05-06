@@ -139,20 +139,36 @@ sshsync pull --host prod-web-01 --recurse /etc/nginx/ ./backups/nginx-configs/
 
 ### Configuration Management
 
-#### Add Hosts or Groups
+#### Add Hosts to Groups
 
 ```bash
-sshsync add TARGET:{host|group}
+sshsync gadd [OPTIONS] GROUP
 ```
 
-**Examples:**
+**Arguments:**
+
+- `GROUP` - The group to add hosts to (required)
+
+**Example:**
 
 ```bash
-# Add a new host
-sshsync add host
+# Add hosts to the 'web' group
+sshsync gadd web
+```
 
-# Add a new group
-sshsync add group
+#### Synchronize Ungrouped Hosts
+
+```bash
+sshsync sync [OPTIONS]
+```
+
+This command prompts for group assignments for all ungrouped hosts and updates the config.
+
+**Example:**
+
+```bash
+# Assign groups to all ungrouped hosts
+sshsync sync
 ```
 
 #### List Configured Hosts and Groups
@@ -180,43 +196,25 @@ sshsync version
 
 ## Configuration 🔧
 
-sshsync stores its configuration in a YAML file located at `~/.config/sshsync/config.yaml`.
+> sshsync stores its configuration in a YAML file located at `~/.config/sshsync/config.yaml`. It uses your existing SSH configuration from `~/.ssh/config` for host connection details and stores only group information in its own config file. Before running other commands, it's recommended to run `sshsync sync` to assign hosts to groups for easier targeting.
 
 ### Configuration File Structure
 
 ```yaml
 groups:
-- dev
-- web
-- db
-
-hosts:
--   address: example.com
-    groups:
-    - dev
-    - web
-    port: 22
-    ssh_key_path: ~/.ssh/id_ed25519
-    username: admin
--   address: db.example.org
-    groups:
-    - db
-    port: 22
-    ssh_key_path: ~/.ssh/id_rsa
-    username: dbadmin
+  dev:
+  - example.site
+  work:
+  - work.dev
+  - ssh.work.dev
+  web:
+  - cloudmesh
+  - example.com
 ```
 
-You can edit this file manually or use the built-in commands to add hosts and groups.
+You can edit this file manually or use the built-in commands to manage groups and hosts.
 
-### Host Configuration Options
-
-- **address**: The server hostname or IP address
-- **username**: SSH username
-- **port**: SSH port (default: 22)
-- **ssh_key_path**: Path to your SSH private key
-- **groups**: List of groups the host belongs to
-
-> **Note**: sshsync uses SSH key-based authentication only. Password authentication is not supported.
+> **Note**: sshsync leverages your existing SSH configuration for host details, making it easier to maintain a single source of truth for SSH connections.
 
 ## Examples 🧪
 
@@ -232,6 +230,12 @@ sshsync push --group production --recurse ./configs/ /etc/app/configs/
 
 # Pull log files from all web servers
 sshsync pull --group web-servers /var/log/nginx/error.log ./logs/
+
+# Add hosts to the dev group
+sshsync gadd dev
+
+# Assign groups to all ungrouped hosts
+sshsync sync
 
 # Check if hosts are reachable
 sshsync ls --with-status

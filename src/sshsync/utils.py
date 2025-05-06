@@ -1,4 +1,3 @@
-import ipaddress
 import socket
 from pathlib import Path
 
@@ -9,35 +8,9 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 from sshsync.config import Config
-from sshsync.schemas import Host, SSHResult
+from sshsync.schemas import SSHResult
 
 console = Console()
-
-
-def is_valid_ip(ip: str) -> bool:
-    """Check if the string is a valid ip address"""
-    try:
-        ipaddress.ip_address(ip)
-        return True
-    except ValueError:
-        return False
-
-
-def get_host_name_or_ip() -> str:
-    """Prompt the user to enter a valid hostname or ip address"""
-    while True:
-        host_input = Prompt.ask("Enter the host name or IP address")
-
-        if is_valid_ip(host_input):
-            return host_input
-
-        try:
-            socket.gethostbyname(host_input)
-            return host_input
-        except socket.gaierror:
-            console.print(
-                f"[bold red]Error:[/bold red] Invalid host name or IP address: [bold]{host_input}[/bold]. Please try again."
-            )
 
 
 def check_file_exists(file_path: str) -> bool:
@@ -49,44 +22,6 @@ def check_file_exists(file_path: str) -> bool:
 def check_path_exists(path: str) -> bool:
     """Check if the given path exists"""
     return Path(path).exists()
-
-
-def get_valid_file_path() -> str:
-    """Prompt the user to enter a valid file path"""
-    while True:
-        file_path = Prompt.ask("Enter path to ssh key for this host")
-        if check_file_exists(file_path):
-            return file_path
-        console.log(
-            f"[bold red]Error:[/bold red] The file at [bold]{file_path}[/bold] does not exist. Please try again."
-        )
-
-
-def get_valid_username() -> str:
-    """Prompt the user to enter a valid username"""
-    while True:
-        username = Prompt.ask("Enter the SSH username for this server").strip()
-        if username:
-            break
-        console.print(
-            "[bold red]Error:[/bold red] Username cannot be empty. Please try again."
-        )
-    return username
-
-
-def get_valid_port_number() -> int:
-    """Prompt the user to enter a valid port number"""
-    while True:
-        port_input = Prompt.ask(
-            "Enter the port on which the SSH server is running", default="22"
-        )
-        if port_input.isdigit():
-            port = int(port_input)
-            if 1 <= port <= 65535:
-                return port
-        console.print(
-            "[bold red]Error:[/bold red] Please enter a valid port number (1–65535)."
-        )
 
 
 def is_host_reachable(host: str, port: int = 80, timeout: int = 2) -> bool:
@@ -117,22 +52,27 @@ def add_group(
     return groups
 
 
-def add_host() -> Host:
-    """Prompt the user for host information and return a Host instance"""
-    name = get_host_name_or_ip()
-    ssh_key_path = get_valid_file_path()
-    username = get_valid_username()
-    port = get_valid_port_number()
-    groups = add_group(
-        "Enter the name(s) of the group(s) this host can belong to (comma-separated)"
+def add_hosts_to_group(group: str) -> list[str]:
+    """Prompt for host aliases and return them as a list of non-empty strings"""
+    host_input = Prompt.ask(
+        f"Enter host aliases to add to group '{group}' (space-separated)"
     )
-    return Host(
-        address=name,
-        ssh_key_path=ssh_key_path,
-        username=username,
-        port=port,
-        groups=groups,
+    return [host.strip() for host in host_input.split() if host.strip()]
+
+
+def assign_groups_to_hosts(hosts: list[str]) -> dict[str, list[str]]:
+    """Prompt the user to assign one or more groups to each host alias and return a mapping"""
+    print(
+        "Enter group(s) to add to each of the following host aliases (space-separated)"
     )
+    host_group_mapping = dict()
+
+    for host in hosts:
+        input = Prompt.ask(host)
+        groups = [group.strip() for group in input.split() if group.strip()]
+        host_group_mapping[host] = groups
+
+    return host_group_mapping
 
 
 def list_configuration(with_status: bool) -> None:
@@ -153,22 +93,11 @@ def list_configuration(with_status: bool) -> None:
     config = Config()
 
     hosts = config.hosts
-    groups = config.groups
-
-    if groups:
-        group_table = Table(title="Configured Groups")
-        group_table.add_column("Group Name", style="cyan", no_wrap=True)
-
-        for group_name in groups:
-            group_table.add_row(group_name)
-
-        console.print(group_table)
-    else:
-        console.print("[bold yellow]No groups configured.[/bold yellow]")
 
     if hosts:
         host_table = Table(title="Configured Hosts")
-        host_table.add_column("Host", style="cyan", no_wrap=True)
+        host_table.add_column("Alias", style="purple", no_wrap=True)
+        host_table.add_column("Host", style="cyan")
         host_table.add_column("Username", style="green")
         host_table.add_column("Port", style="blue")
         host_table.add_column("SSH Key", style="magenta")
@@ -178,10 +107,11 @@ def list_configuration(with_status: bool) -> None:
 
         for host in hosts:
             row = [
+                host.alias,
                 host.address,
                 host.username,
                 str(host.port),
-                host.ssh_key_path,
+                host.identity_file,
                 ", ".join(host.groups) if host.groups else "-",
             ]
             if with_status:
@@ -245,3 +175,11 @@ def print_error(message: str, exit: bool = False) -> None:
     )
     if exit:
         raise typer.Exit(1)
+
+
+def print_message(message: str) -> None:
+    """Display an error message in a styled panel"""
+    console.print(
+        Panel(message, title="Message", title_align="left", border_style="blue"),
+        style="bold white",
+    )
