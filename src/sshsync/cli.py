@@ -3,9 +3,10 @@ import importlib.metadata
 import typer
 
 from sshsync.client import SSHClient
-from sshsync.config import Config
+from sshsync.config import Config, ConfigError
 from sshsync.schemas import FileTransferAction
 from sshsync.utils import (
+    add_host,
     add_hosts_to_group,
     assign_groups_to_hosts,
     check_path_exists,
@@ -39,11 +40,14 @@ def all(
         typer.echo("Error: Command cannot be empty.")
         raise typer.Exit(code=1)
 
-    config = Config()
+    try:
+        config = Config()
 
-    ssh_client = SSHClient()
-    results = ssh_client.begin(cmd, config.hosts, timeout)
-    print_ssh_results(results)
+        ssh_client = SSHClient()
+        results = ssh_client.begin(cmd, config.hosts, timeout)
+        print_ssh_results(results)
+    except ConfigError as e:
+        print_error(e, True)
 
 
 @app.command(
@@ -64,12 +68,15 @@ def group(
         cmd (str): The shell command to execute remotely.
         timeout (int): Timeout (in seconds) for both SSH connection and command execution.
     """
-    config = Config()
-    hosts = config.get_hosts_by_group(name)
+    try:
+        config = Config()
+        hosts = config.get_hosts_by_group(name)
 
-    ssh_client = SSHClient()
-    results = ssh_client.begin(cmd, hosts, timeout)
-    print_ssh_results(results)
+        ssh_client = SSHClient()
+        results = ssh_client.begin(cmd, hosts, timeout)
+        print_ssh_results(results)
+    except ConfigError as e:
+        print_error(e, True)
 
 
 @app.command(help="Add hosts to a specified group.")
@@ -80,15 +87,32 @@ def gadd(group: str):
     Args:
         group (str): The group to add hosts to.
     """
-    config = Config()
+    try:
+        config = Config()
 
-    hosts = add_hosts_to_group(group)
+        hosts = add_hosts_to_group(group)
 
-    if not hosts:
-        return print_error("No hosts provided")
+        if not hosts:
+            return print_error("No hosts provided")
 
-    config.add_hosts_to_group(group, hosts)
-    print_message(f"Hosts added to group {group}")
+        config.add_hosts_to_group(group, hosts)
+        print_message(f"Hosts added to group {group}")
+    except ConfigError as e:
+        print_error(e, True)
+
+
+@app.command(help="Add a host to your SSH config.")
+def hadd():
+    """
+    Add a single host entry to your ~/.ssh/config file.
+    """
+    try:
+        config = Config()
+
+        config.add_new_host(add_host())
+        print_message("Hosts added")
+    except ConfigError as e:
+        print_error(e, True)
 
 
 @app.command(
@@ -98,16 +122,19 @@ def sync():
     """
     Prompt for group assignments for all ungrouped hosts and update the config.
     """
-    config = Config()
+    try:
+        config = Config()
 
-    hosts = config.get_ungrouped_hosts()
-    if not hosts:
-        return print_message("All hosts are already assigned to groups")
+        hosts = config.get_ungrouped_hosts()
+        if not hosts:
+            return print_message("All hosts are already assigned to groups")
 
-    host_group_mapping = assign_groups_to_hosts(hosts)
+        host_group_mapping = assign_groups_to_hosts(hosts)
 
-    config.assign_groups_to_hosts(host_group_mapping)
-    print_message("All ungrouped hosts have been assigned to the specified groups")
+        config.assign_groups_to_hosts(host_group_mapping)
+        print_message("All ungrouped hosts have been assigned to the specified groups")
+    except ConfigError as e:
+        print_error(e, True)
 
 
 @app.command(help="Push a file to remote hosts using SCP.")
@@ -119,8 +146,8 @@ def push(
         ..., help="The remote destination path where the file/directory will be placed."
     ),
     all: bool = typer.Option(False, "--all", help="Push to all configured hosts."),
-    group: str = typer.Option("", "--group", help="Push to a specific group of hosts."),
-    host: str = typer.Option("", "--host", help="Push to a single specific host."),
+    group: str = typer.Option("--group", help="Push to a specific group of hosts."),
+    host: str = typer.Option("--host", help="Push to a single specific host."),
     recurse: bool = typer.Option(
         False, "--recurse", help="Recursively push a directory and its contents."
     ),
@@ -149,30 +176,31 @@ def push(
     if not check_path_exists(local_path):
         print_error(f"Path ({local_path}) does not exist", True)
 
-    config = Config()
-    ssh_client = SSHClient()
+    try:
+        config = Config()
+        ssh_client = SSHClient()
 
-    host_obj = config.get_host_by_name(host)
-    hosts = (
-        config.hosts
-        if all
-        else (
-            config.get_hosts_by_group(group)
-            if group
-            else [host_obj]
-            if host_obj is not None
-            else []
+        host_obj = config.get_host_by_name(host)
+        hosts = (
+            config.hosts
+            if all
+            else (
+                config.get_hosts_by_group(group)
+                if group
+                else [host_obj] if host_obj is not None else []
+            )
         )
-    )
 
-    if not hosts:
-        return print_error("Invalid host or group")
+        if not hosts:
+            return print_error("Invalid host or group")
 
-    results = ssh_client.begin_transfer(
-        local_path, remote_path, hosts, FileTransferAction.PUSH, recurse
-    )
+        results = ssh_client.begin_transfer(
+            local_path, remote_path, hosts, FileTransferAction.PUSH, recurse
+        )
 
-    print_ssh_results(results)
+        print_ssh_results(results)
+    except ConfigError as e:
+        print_error(e, True)
 
 
 @app.command(help="Pull a file from remote hosts using SCP.")
@@ -187,7 +215,7 @@ def pull(
     group: str = typer.Option(
         "", "--group", help="Pull from a specific group of hosts."
     ),
-    host: str = typer.Option("", "--host", help="Pull from a single specific host."),
+    host: str = typer.Option("--host", help="Pull from a single specific host."),
     recurse: bool = typer.Option(
         False, "--recurse", help="Recursively pull a directory and its contents."
     ),
@@ -216,34 +244,35 @@ def pull(
     if not check_path_exists(local_path):
         print_error(f"Path ({local_path}) does not exist", True)
 
-    config = Config()
-    ssh_client = SSHClient()
+    try:
+        config = Config()
+        ssh_client = SSHClient()
 
-    host_obj = config.get_host_by_name(host)
-    hosts = (
-        config.hosts
-        if all
-        else (
-            config.get_hosts_by_group(group)
-            if group
-            else [host_obj]
-            if host_obj is not None
-            else []
+        host_obj = config.get_host_by_name(host)
+        hosts = (
+            config.hosts
+            if all
+            else (
+                config.get_hosts_by_group(group)
+                if group
+                else [host_obj] if host_obj is not None else []
+            )
         )
-    )
 
-    if not hosts:
-        return print_error("Invalid host or group")
+        if not hosts:
+            return print_error("Invalid host or group")
 
-    results = ssh_client.begin_transfer(
-        local_path,
-        remote_path,
-        hosts,
-        FileTransferAction.PULL,
-        recurse,
-    )
+        results = ssh_client.begin_transfer(
+            local_path,
+            remote_path,
+            hosts,
+            FileTransferAction.PULL,
+            recurse,
+        )
 
-    print_ssh_results(results)
+        print_ssh_results(results)
+    except ConfigError as e:
+        print_error(e, True)
 
 
 @app.command(help="List all configured host groups and hosts.")
@@ -258,7 +287,10 @@ def ls(
     Args:
         with_status (bool): Whether to include network reachability status for each host.
     """
-    list_configuration(with_status)
+    try:
+        list_configuration(with_status)
+    except ConfigError as e:
+        print_error(e, True)
 
 
 @app.command(help="Display the current version of sshsync.")
