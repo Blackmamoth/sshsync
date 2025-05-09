@@ -36,15 +36,12 @@ def all(
         cmd (str): The shell command to execute remotely.
         timeout (int): Timeout (in seconds) for SSH command execution.
     """
-    if not cmd.strip():
-        typer.echo("Error: Command cannot be empty.")
-        raise typer.Exit(code=1)
 
     try:
         config = Config()
 
         ssh_client = SSHClient()
-        results = ssh_client.begin(cmd, config.hosts, timeout)
+        results = ssh_client.begin(cmd, config.configured_hosts(), timeout)
         print_ssh_results(results)
     except ConfigError as e:
         print_error(e, True)
@@ -110,7 +107,7 @@ def hadd():
         config = Config()
 
         config.add_new_host(add_host())
-        print_message("Hosts added")
+        print_message("Host added")
     except ConfigError as e:
         print_error(e, True)
 
@@ -182,12 +179,14 @@ def push(
 
         host_obj = config.get_host_by_name(host)
         hosts = (
-            config.hosts
+            config.configured_hosts()
             if all
             else (
                 config.get_hosts_by_group(group)
                 if group
-                else [host_obj] if host_obj is not None else []
+                else [host_obj]
+                if host_obj is not None
+                else []
             )
         )
 
@@ -250,12 +249,14 @@ def pull(
 
         host_obj = config.get_host_by_name(host)
         hosts = (
-            config.hosts
+            config.configured_hosts()
             if all
             else (
                 config.get_hosts_by_group(group)
                 if group
-                else [host_obj] if host_obj is not None else []
+                else [host_obj]
+                if host_obj is not None
+                else []
             )
         )
 

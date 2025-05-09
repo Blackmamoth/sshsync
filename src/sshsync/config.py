@@ -40,6 +40,9 @@ class Config:
 
         self.configure_ssh_hosts()
 
+    def configured_hosts(self):
+        return list(filter(lambda x: x.alias != "default", self.hosts))
+
     def _default_config(self) -> YamlConfig:
         return YamlConfig(groups=dict())
 
@@ -155,7 +158,11 @@ class Config:
         Returns:
             list[Host]: Hosts that are members of the group.
         """
-        return [host for host in self.hosts if group in host.groups]
+        return [
+            host
+            for host in self.hosts
+            if group in host.groups and host.alias != "default"
+        ]
 
     def get_host_by_name(self, name: str) -> Host | None:
         """Find a host by its alias.
