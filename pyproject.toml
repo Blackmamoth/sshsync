@@ -1,6 +1,6 @@
 [project]
 name = "sshsync"
-version = "0.7.0"
+version = "0.8.0"
 description = "sshsync is a CLI tool to run shell commands across multiple servers via SSH, either on specific groups or all servers. Upcoming features include file push/pull support."
 readme = "README.md"
 authors = [
@@ -13,6 +13,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "rich>=14.0.0",
     "sshconf>=0.2.7",
+    "structlog>=25.3.0",
     "typer>=0.15.3",
 ]
 

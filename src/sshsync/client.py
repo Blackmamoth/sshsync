@@ -3,15 +3,20 @@ from os import EX_OK
 from pathlib import Path
 
 import asyncssh
+import structlog
 
 from sshsync.config import Config
+from sshsync.logging import setup_logging
 from sshsync.schemas import FileTransferAction, Host, SSHResult
+
+setup_logging()
 
 
 class SSHClient:
     def __init__(self) -> None:
         """Initialize the SSHClient with configuration data from the config file."""
         self.config = Config()
+        self.logger = structlog.get_logger()
 
     def _is_key_encrypted(self, key_path: str) -> bool:
         """Check if the given ssh key is protected by a passphrase
@@ -67,42 +72,54 @@ class SSHClient:
                 conn_kwargs["client_keys"] = [host.identity_file]
             async with asyncssh.connect(**conn_kwargs) as conn:
                 result = await conn.run(cmd, check=True, timeout=self.timeout)
-                return SSHResult(
-                    host=host.address,
-                    exit_status=result.exit_status,
-                    success=result.exit_status == EX_OK,
-                    output=(
+                data = {
+                    "host": host.address,
+                    "exit_status": result.exit_status,
+                    "success": result.exit_status == EX_OK,
+                    "output": (
                         result.stdout if result.exit_status == EX_OK else result.stderr
                     ),
-                )
+                }
+                self.logger.info("SSH Execution completed", **data)
+                return SSHResult(**data)
         except asyncssh.KeyEncryptionError as e:
-            return SSHResult(
-                host=host.address,
-                exit_status=None,
-                success=False,
-                output=f"Encrypted private key, passphrase required: {e}",
-            )
+            data = {
+                "host": host.address,
+                "exit_status": None,
+                "success": False,
+                "output": f"Encrypted private key, passphrase required: {e}",
+            }
+            self.logger.error("SSH error: Encrypted private key", **data)
+            return SSHResult(**data)
         except asyncssh.PermissionDenied as e:
-            return SSHResult(
-                host=host.address,
-                exit_status=None,
-                success=False,
-                output=f"Permission denied: {e.reason}",
-            )
+            data = {
+                "host": host.address,
+                "exit_status": None,
+                "success": False,
+                "output": f"Permission denied: {e.reason}",
+            }
+            self.logger.error("SSH error: Permission denied", **data)
+            return SSHResult(**data)
+
         except asyncssh.ProcessError as e:
-            return SSHResult(
-                host=host.address,
-                exit_status=e.exit_status,
-                success=False,
-                output=f"Command failed: {e.stderr}",
-            )
+            data = {
+                "host": host.address,
+                "exit_status": e.exit_status,
+                "success": False,
+                "output": f"Command failed: {e.stderr}",
+            }
+            self.logger.error("SSH error: Command failed", **data)
+            return SSHResult(**data)
+
         except Exception as e:
-            return SSHResult(
-                host=host.address,
-                exit_status=None,
-                success=False,
-                output=f"Unexpected error: {e}",
-            )
+            data = {
+                "host": host.address,
+                "exit_status": None,
+                "success": False,
+                "output": f"Unexpected error: {e}",
+            }
+            self.logger.error("SSH error: Unexpected error", **data)
+            return SSHResult(**data)
 
     async def _transfer_file_across_hosts(
         self,
@@ -158,40 +175,53 @@ class SSHClient:
                 await asyncssh.scp(
                     local_path, (conn, remote_path), recurse=self.recurse
                 )
-                return SSHResult(
-                    host=host.address,
-                    exit_status=EX_OK,
-                    success=True,
-                    output=f"Successfully sent to {host.address}:{remote_path}",
-                )
+                data = {
+                    "host": host.address,
+                    "exit_status": EX_OK,
+                    "success": True,
+                    "output": f"Successfully sent to {host.address}:{remote_path}",
+                }
+                self.logger.info("Upload successful", **data)
+                return SSHResult(**data)
         except asyncssh.PermissionDenied as e:
-            return SSHResult(
-                host=host.address,
-                exit_status=None,
-                success=False,
-                output=f"Permission denied: {e.reason}",
-            )
+            data = {
+                "host": host.address,
+                "exit_status": None,
+                "success": False,
+                "output": f"Permission denied: {e.reason}",
+            }
+            self.logger.error("SSH error: Permission denied", **data)
+            return SSHResult(**data)
+
         except asyncssh.SFTPError as e:
-            return SSHResult(
-                host=host.address,
-                exit_status=None,
-                success=False,
-                output=f"SFTP error: {e.reason}",
-            )
+            data = {
+                "host": host.address,
+                "exit_status": None,
+                "success": False,
+                "output": f"SFTP error: {e.reason}",
+            }
+            self.logger.error("SSH error: SFTP error", **data)
+            return SSHResult(**data)
+
         except asyncssh.ChannelOpenError as e:
-            return SSHResult(
-                host=host.address,
-                exit_status=None,
-                success=False,
-                output=f"Channel open error: {e.reason}",
-            )
+            data = {
+                "host": host.address,
+                "exit_status": None,
+                "success": False,
+                "output": f"Channel open error: {e.reason}",
+            }
+            self.logger.error("SSH error: Channel open error", **data)
+            return SSHResult(**data)
+
         except Exception as e:
-            return SSHResult(
-                host=host.address,
-                exit_status=None,
-                success=False,
-                output=f"Unexpected error: {e}",
-            )
+            data = {
+                "host": host.address,
+                "exit_status": None,
+                "success": False,
+                "output": f"Unexpected error: {e}",
+            }
+            self.logger.error("SSH error: Unexpected error", **data)
+            return SSHResult(**data)
 
     async def _pull(self, local_path: str, remote_path: str, host: Host) -> SSHResult:
         """Pull a file or directory from a remote host to the local machine over SSH.
@@ -223,41 +253,53 @@ class SSHClient:
                 await asyncssh.scp(
                     (conn, remote_path), unique_path, recurse=self.recurse
                 )
-
-                return SSHResult(
-                    host=host.address,
-                    exit_status=EX_OK,
-                    success=True,
-                    output=f"Downloaded successfully from {host.address}:{remote_path}",
-                )
+                data = {
+                    "host": host.address,
+                    "exit_status": EX_OK,
+                    "success": True,
+                    "output": f"Downloaded successfully from {host.address}:{remote_path}",
+                }
+                self.logger.info("Download successful", **data)
+                return SSHResult(**data)
         except asyncssh.PermissionDenied as e:
-            return SSHResult(
-                host=host.address,
-                exit_status=None,
-                success=False,
-                output=f"Permission denied: {e.reason}",
-            )
+            data = {
+                "host": host.address,
+                "exit_status": None,
+                "success": False,
+                "output": f"Permission denied: {e.reason}",
+            }
+            self.logger.error("SSH error: Permission denied", **data)
+            return SSHResult(**data)
+
         except asyncssh.SFTPError as e:
-            return SSHResult(
-                host=host.address,
-                exit_status=None,
-                success=False,
-                output=f"SFTP error: {e.reason}",
-            )
+            data = {
+                "host": host.address,
+                "exit_status": None,
+                "success": False,
+                "output": f"SFTP error: {e.reason}",
+            }
+            self.logger.error("SSH error: SFTP error", **data)
+            return SSHResult(**data)
+
         except asyncssh.ChannelOpenError as e:
-            return SSHResult(
-                host=host.address,
-                exit_status=None,
-                success=False,
-                output=f"Channel open error: {e.reason}",
-            )
+            data = {
+                "host": host.address,
+                "exit_status": None,
+                "success": False,
+                "output": f"Channel open error: {e.reason}",
+            }
+            self.logger.error("SSH error: Channel open error", **data)
+            return SSHResult(**data)
+
         except Exception as e:
-            return SSHResult(
-                host=host.address,
-                exit_status=None,
-                success=False,
-                output=f"Unexpected error: {e}",
-            )
+            data = {
+                "host": host.address,
+                "exit_status": None,
+                "success": False,
+                "output": f"Unexpected error: {e}",
+            }
+            self.logger.error("SSH error: Unexpected error", **data)
+            return SSHResult(**data)
 
     def begin(
         self, cmd: str, hosts: list[Host], timeout: int | None = 10

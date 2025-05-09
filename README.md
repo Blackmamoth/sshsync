@@ -11,7 +11,7 @@
 - 🧠 Group-based configuration for easy targeting
 - 🕒 Adjustable SSH timeout settings
 - 📁 **Push/pull files** between local and remote hosts
-- 📊 (Coming Soon) Execution history and logging
+- 📊 Operation history and logging
 
 ## Installation 📦
 
@@ -156,6 +156,21 @@ sshsync gadd [OPTIONS] GROUP
 sshsync gadd web
 ```
 
+#### Add a Host to SSH Config
+
+```bash
+sshsync hadd [OPTIONS]
+```
+
+This command interactively adds a new host to your SSH config file.
+
+**Example:**
+
+```bash
+# Add a new host to your SSH configuration
+sshsync hadd
+```
+
 #### Synchronize Ungrouped Hosts
 
 ```bash
@@ -216,6 +231,16 @@ You can edit this file manually or use the built-in commands to manage groups an
 
 > **Note**: sshsync leverages your existing SSH configuration for host details, making it easier to maintain a single source of truth for SSH connections.
 
+## Logging 📝
+
+sshsync now includes operation history and logging functionality. Logs are stored in platform-specific locations:
+
+- **Windows**: `%LOCALAPPDATA%\sshsync\logs`
+- **macOS**: `~/Library/Logs/sshsync`
+- **Linux**: `~/.local/state/sshsync`
+
+These logs track command executions, file transfers, and any errors that occur during operations.
+
 ## Examples 🧪
 
 ```bash
@@ -234,6 +259,9 @@ sshsync pull --group web-servers /var/log/nginx/error.log ./logs/
 # Add hosts to the dev group
 sshsync gadd dev
 
+# Add a new host to your SSH configuration
+sshsync hadd
+
 # Assign groups to all ungrouped hosts
 sshsync sync
 
@@ -243,9 +271,9 @@ sshsync ls --with-status
 
 ## Upcoming Features 🛣️
 
-- Initial implementation of execution history and logging
-- Support for additional authentication methods
+- Live results display (--live flag) to show command outputs as they complete
 - Performance optimizations for large server fleets
+- Support for additional authentication methods
 - Automated versioning using release-please for streamlined releases
 
 ## License 📄

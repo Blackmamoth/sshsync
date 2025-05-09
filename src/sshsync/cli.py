@@ -185,7 +185,9 @@ def push(
             else (
                 config.get_hosts_by_group(group)
                 if group
-                else [host_obj] if host_obj is not None else []
+                else [host_obj]
+                if host_obj is not None
+                else []
             )
         )
 
@@ -253,7 +255,9 @@ def pull(
             else (
                 config.get_hosts_by_group(group)
                 if group
-                else [host_obj] if host_obj is not None else []
+                else [host_obj]
+                if host_obj is not None
+                else []
             )
         )
 
