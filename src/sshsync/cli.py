@@ -1,3 +1,4 @@
+import asyncio
 import importlib.metadata
 
 import typer
@@ -184,9 +185,7 @@ def push(
             else (
                 config.get_hosts_by_group(group)
                 if group
-                else [host_obj]
-                if host_obj is not None
-                else []
+                else [host_obj] if host_obj is not None else []
             )
         )
 
@@ -254,9 +253,7 @@ def pull(
             else (
                 config.get_hosts_by_group(group)
                 if group
-                else [host_obj]
-                if host_obj is not None
-                else []
+                else [host_obj] if host_obj is not None else []
             )
         )
 
@@ -289,7 +286,7 @@ def ls(
         with_status (bool): Whether to include network reachability status for each host.
     """
     try:
-        list_configuration(with_status)
+        asyncio.run(list_configuration(with_status))
     except ConfigError as e:
         print_error(e, True)
 

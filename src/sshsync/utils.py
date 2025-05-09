@@ -1,3 +1,4 @@
+import asyncio
 import ipaddress
 import socket
 from pathlib import Path
@@ -19,7 +20,7 @@ def check_path_exists(path: str) -> bool:
     return Path(path).expanduser().exists()
 
 
-def is_host_reachable(host: str, port: int = 80, timeout: int = 2) -> bool:
+async def is_host_reachable(host: str, port: int = 80, timeout: int = 2) -> bool:
     """
     Check if a host is reachable by attempting to establish a TCP connection.
 
@@ -32,8 +33,12 @@ def is_host_reachable(host: str, port: int = 80, timeout: int = 2) -> bool:
         bool: True if the host is reachable on the specified port, False otherwise.
     """
     try:
-        with socket.create_connection((host, port), timeout=timeout):
-            return True
+        _, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port), timeout=timeout
+        )
+        writer.close()
+        await writer.wait_closed()
+        return True
     except (socket.timeout, socket.error):
         return False
 
@@ -160,7 +165,7 @@ def add_host() -> Host:
     )
 
 
-def list_configuration(with_status: bool) -> None:
+async def list_configuration(with_status: bool) -> None:
     """
     Display the current SSH configuration including hosts and groups in rich-formatted tables.
 
@@ -177,7 +182,7 @@ def list_configuration(with_status: bool) -> None:
     """
     config = Config()
 
-    hosts = config.hosts
+    hosts = config.configured_hosts()
 
     if hosts:
         host_table = Table(title="Configured Hosts")
@@ -202,7 +207,7 @@ def list_configuration(with_status: bool) -> None:
             if with_status:
                 row.append(
                     "[bold green]Up[/bold green]"
-                    if is_host_reachable(host.address, host.port)
+                    if await is_host_reachable(host.address, host.port)
                     else "[bold red]Down[/bold red]"
                 )
             host_table.add_row(*row)
