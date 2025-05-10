@@ -2,7 +2,10 @@
 
 **sshsync** is a fast, minimal CLI tool to run shell commands across multiple remote servers via SSH. Easily target all servers or just a specific group, great for sysadmins, developers, and automation workflows.
 
-> **IMPORTANT**: sshsync uses asyncssh for SSH connections. If you use passphrase-protected SSH keys, you MUST have your ssh-agent running with the keys added via ssh-add. sshsync will rely on SSH agent forwarding to authenticate with protected keys.
+> **IMPORTANT**:
+> 
+> 1. sshsync uses asyncssh for SSH connections. If you use passphrase-protected SSH keys, you MUST have your ssh-agent running with the keys added via ssh-add. sshsync will rely on SSH agent forwarding to authenticate with protected keys.
+> 2. Throughout this documentation, whenever "host" is mentioned, it refers to the SSH alias defined by the `Host` directive in your `~/.ssh/config` file, not the actual hostname (`HostName` directive). sshsync uses these aliases for all operations.
 
 ## Features ✨
 
@@ -12,6 +15,7 @@
 - 🕒 Adjustable SSH timeout settings
 - 📁 **Push/pull files** between local and remote hosts
 - 📊 Operation history and logging
+- 🔍 **Dry-run mode** to preview actions before execution
 
 ## Installation 📦
 
@@ -64,12 +68,16 @@ sshsync all [OPTIONS] CMD
 **Options:**
 
 - `--timeout INTEGER` - Timeout in seconds for SSH command execution (default: 10)
+- `--dry-run` - Show command and host info without executing
 
-**Example:**
+**Examples:**
 
 ```bash
 # Check disk space on all servers with a 20 second timeout
 sshsync all --timeout 20 "df -h"
+
+# Preview which hosts would receive the command without executing
+sshsync all --dry-run "systemctl restart nginx"
 ```
 
 #### Execute on a Specific Group
@@ -81,12 +89,16 @@ sshsync group [OPTIONS] NAME CMD
 **Options:**
 
 - `--timeout INTEGER` - Timeout in seconds for SSH command execution (default: 10)
+- `--dry-run` - Show command and host info without executing
 
-**Example:**
+**Examples:**
 
 ```bash
 # Restart web services on production servers
 sshsync group web-servers "sudo systemctl restart nginx"
+
+# Preview the command execution on database servers without executing
+sshsync group db-servers --dry-run "service postgresql restart"
 ```
 
 ### File Transfer Operations
@@ -103,6 +115,7 @@ sshsync push [OPTIONS] LOCAL_PATH REMOTE_PATH
 - `--group TEXT` - Push to a specific group of hosts
 - `--host TEXT` - Push to a single specific host
 - `--recurse` - Recursively push a directory and its contents
+- `--dry-run` - Show transfer and host info without executing
 
 **Examples:**
 
@@ -112,6 +125,9 @@ sshsync push --all ./config.yml /etc/app/config.yml
 
 # Push directory to web-servers group recursively
 sshsync push --group web-servers --recurse ./app/ /var/www/app/
+
+# Preview file transfer to a specific host without executing
+sshsync push --host staging-db --dry-run ./db-config.json /etc/postgres/conf.d/
 ```
 
 #### Pull Files from Remote Hosts
@@ -126,6 +142,7 @@ sshsync pull [OPTIONS] REMOTE_PATH LOCAL_PATH
 - `--group TEXT` - Pull from a specific group of hosts
 - `--host TEXT` - Pull from a single specific host
 - `--recurse` - Recursively pull a directory and its contents
+- `--dry-run` - Show transfer and host info without executing
 
 **Examples:**
 
@@ -135,6 +152,9 @@ sshsync pull --group db-servers /var/log/mysql/error.log ./logs/
 
 # Pull configuration directory from a specific host
 sshsync pull --host prod-web-01 --recurse /etc/nginx/ ./backups/nginx-configs/
+
+# Preview which files would be pulled without executing
+sshsync pull --group web-servers --dry-run /var/log/nginx/access.log ./logs/
 ```
 
 ### Configuration Management
@@ -212,6 +232,8 @@ sshsync version
 ## Configuration 🔧
 
 > sshsync stores its configuration in a YAML file located at `~/.config/sshsync/config.yaml`. It uses your existing SSH configuration from `~/.ssh/config` for host connection details and stores only group information in its own config file. Before running other commands, it's recommended to run `sshsync sync` to assign hosts to groups for easier targeting.
+> 
+> **Note about hosts**: sshsync uses the SSH alias (the `Host` directive) from your `~/.ssh/config` file, not the actual hostname. This means when you specify a host in any sshsync command, you're referring to the SSH alias that you've defined in your SSH config.
 
 ### Configuration File Structure
 
@@ -250,11 +272,17 @@ sshsync all "df -h"
 # View memory usage on all database servers with increased timeout
 sshsync group db-servers --timeout 30 "free -m"
 
+# Preview a potentially destructive command without execution
+sshsync all --dry-run "sudo apt update && sudo apt upgrade -y"
+
 # Push configuration files to production servers recursively
 sshsync push --group production --recurse ./configs/ /etc/app/configs/
 
 # Pull log files from all web servers
 sshsync pull --group web-servers /var/log/nginx/error.log ./logs/
+
+# Preview file transfers to validate paths before execution
+sshsync push --all --dry-run ./sensitive-config.json /etc/app/config.json
 
 # Add hosts to the dev group
 sshsync gadd dev
