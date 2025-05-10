@@ -1,4 +1,3 @@
-import asyncio
 import importlib.metadata
 
 import typer
@@ -12,6 +11,7 @@ from sshsync.utils import (
     assign_groups_to_hosts,
     check_path_exists,
     list_configuration,
+    print_dry_run_results,
     print_error,
     print_message,
     print_ssh_results,
@@ -29,6 +29,9 @@ def all(
     timeout: int = typer.Option(
         10, help="Timeout in seconds for SSH command execution."
     ),
+    dry_run: bool = typer.Option(
+        False, help="Show command and host info without executing."
+    ),
 ):
     """
     Run a shell command on all configured hosts concurrently.
@@ -36,14 +39,21 @@ def all(
     Args:
         cmd (str): The shell command to execute remotely.
         timeout (int): Timeout (in seconds) for SSH command execution.
+        dry_run (bool): Show command and host info without executing.
     """
 
     try:
         config = Config()
 
         ssh_client = SSHClient()
-        results = ssh_client.begin(cmd, config.configured_hosts(), timeout)
-        print_ssh_results(results)
+        if dry_run:
+            dry_run_results = ssh_client.begin_dry_run_exec(
+                cmd, config.configured_hosts(), "exec"
+            )
+            print_dry_run_results(dry_run_results)
+        else:
+            results = ssh_client.begin(cmd, config.configured_hosts(), timeout)
+            print_ssh_results(results)
     except ConfigError as e:
         print_error(e, True)
 
@@ -57,6 +67,9 @@ def group(
     timeout: int = typer.Option(
         10, help="Timeout in seconds for SSH command execution."
     ),
+    dry_run: bool = typer.Option(
+        False, help="Show command and host info without executing."
+    ),
 ):
     """
     Run a shell command on all hosts within the specified group concurrently.
@@ -65,14 +78,19 @@ def group(
         name (str): The name of the host group to target.
         cmd (str): The shell command to execute remotely.
         timeout (int): Timeout (in seconds) for both SSH connection and command execution.
+        dry_run (bool): Show command and host info without executing.
     """
     try:
         config = Config()
         hosts = config.get_hosts_by_group(name)
 
         ssh_client = SSHClient()
-        results = ssh_client.begin(cmd, hosts, timeout)
-        print_ssh_results(results)
+        if dry_run:
+            dry_run_results = ssh_client.begin_dry_run_exec(cmd, hosts, "exec")
+            print_dry_run_results(dry_run_results)
+        else:
+            results = ssh_client.begin(cmd, hosts, timeout)
+            print_ssh_results(results)
     except ConfigError as e:
         print_error(e, True)
 
@@ -143,11 +161,14 @@ def push(
     remote_path: str = typer.Argument(
         ..., help="The remote destination path where the file/directory will be placed."
     ),
-    all: bool = typer.Option(False, "--all", help="Push to all configured hosts."),
-    group: str = typer.Option("--group", help="Push to a specific group of hosts."),
-    host: str = typer.Option("--host", help="Push to a single specific host."),
+    all: bool = typer.Option(False, help="Push to all configured hosts."),
+    group: str = typer.Option("", help="Push to a specific group of hosts."),
+    host: str = typer.Option("", help="Push to a single specific host."),
     recurse: bool = typer.Option(
-        False, "--recurse", help="Recursively push a directory and its contents."
+        False, help="Recursively push a directory and its contents."
+    ),
+    dry_run: bool = typer.Option(
+        False, help="Show transfer and host info without executing."
     ),
 ):
     """
@@ -163,8 +184,9 @@ def push(
         group (str): Push to a specified group of hosts.
         host (str): Push to a specified individual host.
         recurse (bool): If True, recursively push a directory and all its contents.
+        dry_run (bool): Show transfer and host info without executing.
     """
-    options = [all, bool(group), bool(host)]
+    options = [all, bool(group != ""), bool(host != "")]
     if sum(options) != 1:
         print_error(
             "You must specify exactly one of --all, --group, or --host.",
@@ -185,20 +207,24 @@ def push(
             else (
                 config.get_hosts_by_group(group)
                 if group
-                else [host_obj]
-                if host_obj is not None
-                else []
+                else [host_obj] if host_obj is not None else []
             )
         )
 
         if not hosts:
             return print_error("Invalid host or group")
 
-        results = ssh_client.begin_transfer(
-            local_path, remote_path, hosts, FileTransferAction.PUSH, recurse
-        )
+        if dry_run:
+            results = ssh_client.begin_dry_run_transfer(
+                hosts, local_path, remote_path, "push"
+            )
+            print_dry_run_results(results)
+        else:
+            results = ssh_client.begin_transfer(
+                local_path, remote_path, hosts, FileTransferAction.PUSH, recurse
+            )
 
-        print_ssh_results(results)
+            print_ssh_results(results)
     except ConfigError as e:
         print_error(e, True)
 
@@ -212,12 +238,13 @@ def pull(
         ..., help="The local destination path where the file/directory will be placed."
     ),
     all: bool = typer.Option(False, "--all", help="Pull from all configured hosts."),
-    group: str = typer.Option(
-        "", "--group", help="Pull from a specific group of hosts."
-    ),
-    host: str = typer.Option("--host", help="Pull from a single specific host."),
+    group: str = typer.Option("", help="Pull from a specific group of hosts."),
+    host: str = typer.Option("", help="Pull from a single specific host."),
     recurse: bool = typer.Option(
-        False, "--recurse", help="Recursively pull a directory and its contents."
+        False, help="Recursively pull a directory and its contents."
+    ),
+    dry_run: bool = typer.Option(
+        False, help="Show transfer and host info without executing."
     ),
 ):
     """
@@ -233,6 +260,7 @@ def pull(
         group (str): Pull from a specified group of hosts.
         host (str): Pull from a specified individual host.
         recurse (bool): If True, recursively pull directories and all their contents.
+        dry_run (bool): Show transfer and host info without executing.
     """
     options = [all, bool(group), bool(host)]
     if sum(options) != 1:
@@ -255,24 +283,28 @@ def pull(
             else (
                 config.get_hosts_by_group(group)
                 if group
-                else [host_obj]
-                if host_obj is not None
-                else []
+                else [host_obj] if host_obj is not None else []
             )
         )
 
         if not hosts:
             return print_error("Invalid host or group")
 
-        results = ssh_client.begin_transfer(
-            local_path,
-            remote_path,
-            hosts,
-            FileTransferAction.PULL,
-            recurse,
-        )
+        if dry_run:
+            results = ssh_client.begin_dry_run_transfer(
+                hosts, local_path, remote_path, "pull"
+            )
+            print_dry_run_results(results)
+        else:
+            results = ssh_client.begin_transfer(
+                local_path,
+                remote_path,
+                hosts,
+                FileTransferAction.PULL,
+                recurse,
+            )
 
-        print_ssh_results(results)
+            print_ssh_results(results)
     except ConfigError as e:
         print_error(e, True)
 
@@ -290,7 +322,7 @@ def ls(
         with_status (bool): Whether to include network reachability status for each host.
     """
     try:
-        asyncio.run(list_configuration(with_status))
+        list_configuration(with_status)
     except ConfigError as e:
         print_error(e, True)
 

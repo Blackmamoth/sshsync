@@ -1,13 +1,14 @@
 import asyncio
 from os import EX_OK
 from pathlib import Path
+from typing import Literal
 
 import asyncssh
 import structlog
 
 from sshsync.config import Config
 from sshsync.logging import setup_logging
-from sshsync.schemas import FileTransferAction, Host, SSHResult
+from sshsync.schemas import FileTransferAction, Host, SSHDryRun, SSHResult
 
 setup_logging()
 
@@ -51,6 +52,67 @@ class SSHClient:
         return await asyncio.gather(
             *[self._execute_command(host, cmd) for host in hosts]
         )
+
+    def begin_dry_run_exec(
+        self, cmd: str, hosts: list[Host], operation: Literal["exec", "push", "pull"]
+    ) -> list[SSHDryRun]:
+        """
+        Simulate a shell command on multiple hosts.
+
+        Args:
+            cmd (str): Command to simulate.
+            hosts (list[Host]): Hosts to run the command on.
+            operation (Literal["exec", "push", "pull"]): Operation type.
+
+        Returns:
+            list[SSHDryRun]: Simulated command details per host.
+        """
+        return [
+            SSHDryRun(
+                host.address,
+                host.alias,
+                host.username,
+                host.port,
+                operation,
+                cmd,
+                None,
+                None,
+            )
+            for host in hosts
+        ]
+
+    def begin_dry_run_transfer(
+        self,
+        hosts: list[Host],
+        local_path: str,
+        remote_path: str,
+        operation: Literal["push", "pull"],
+    ) -> list[SSHDryRun]:
+        """
+        Simulate a file transfer on multiple hosts.
+
+        Args:
+            hosts (list[Host]): Hosts involved.
+            local_path (str): Local file/directory path.
+            remote_path (str): Remote destination path.
+            direction (Literal["push", "pull"]): Transfer direction.
+
+        Returns:
+            list[SSHDryRun]: Simulated transfer details per host.
+        """
+        return [
+            SSHDryRun(
+                host.address,
+                host.alias,
+                host.username,
+                host.port,
+                operation,
+                None,
+                local_path,
+                remote_path,
+            )
+            for host in hosts
+        ]
 
     async def _execute_command(self, host: Host, cmd: str) -> SSHResult:
         """Establish an SSH connection to a host and run a command.
@@ -302,7 +364,10 @@ class SSHClient:
             return SSHResult(**data)
 
     def begin(
-        self, cmd: str, hosts: list[Host], timeout: int | None = 10
+        self,
+        cmd: str,
+        hosts: list[Host],
+        timeout: int = 10,
     ) -> list[SSHResult]:
         """Execute a command across multiple hosts using asyncio.
 

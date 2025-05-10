@@ -1,5 +1,6 @@
 from dataclasses import asdict, dataclass
 from enum import Enum
+from typing import Literal
 
 from asyncssh import BytesOrStr
 
@@ -77,3 +78,34 @@ class SSHResult:
     exit_status: int | None
     success: bool
     output: BytesOrStr | None
+
+
+@dataclass
+class SSHDryRun:
+    """
+    Represents the intended SSH operation during a dry run, without execution or validation.
+
+    Attributes:
+        host (str): Target host.
+        alias (str): Alias of the host specified in ~/.ssh/config
+        username (str): Username
+        port (int): Port on which ssh server is running
+        operation (Literal["exec", "push", "pull"]): Type of SSH operation.
+        command (str | None): Command to be run (for 'exec').
+        local_path (str | None): Local file path (used in 'push' or 'pull').
+        remote_path (str | None): Remote file path (used in 'push' or 'pull').
+    """
+
+    host: str
+    alias: str
+    username: str
+    port: int
+    operation: Literal["exec", "push", "pull"]
+
+    # For exec
+    command: str | None = None
+
+    # For push/pull
+    local_path: str | None = None
+
+    remote_path: str | None = None

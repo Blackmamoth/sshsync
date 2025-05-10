@@ -10,7 +10,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 from sshsync.config import Config
-from sshsync.schemas import Host, SSHResult
+from sshsync.schemas import Host, SSHDryRun, SSHResult
 
 console = Console()
 
@@ -165,7 +165,7 @@ def add_host() -> Host:
     )
 
 
-async def list_configuration(with_status: bool) -> None:
+def list_configuration(with_status: bool) -> None:
     """
     Display the current SSH configuration including hosts and groups in rich-formatted tables.
 
@@ -207,7 +207,7 @@ async def list_configuration(with_status: bool) -> None:
             if with_status:
                 row.append(
                     "[bold green]Up[/bold green]"
-                    if await is_host_reachable(host.address, host.port)
+                    if asyncio.run(is_host_reachable(host.address, host.port))
                     else "[bold red]Down[/bold red]"
                 )
             host_table.add_row(*row)
@@ -241,6 +241,47 @@ def print_ssh_results(results: list[SSHResult]) -> None:
             table.add_row(result.host, status, str(output))
 
     console.print(table)
+
+
+def print_dry_run_results(tasks: list[SSHDryRun]) -> None:
+    """
+    Display a dry-run summary for each SSH operation using rich panels.
+
+    Args:
+        dry_run_items (list[SSHDryRun]): Simulated SSH operations to preview.
+    """
+    for task in tasks:
+        lines = []
+
+        lines.append(f"[bold]Alias:[/bold] {task.alias}")
+        lines.append(f"[bold]User:[/bold] {task.username}")
+        lines.append(f"[bold]Operation:[/bold] {task.operation.upper()}")
+
+        if task.operation == "exec" and task.command:
+            lines.append(f"[bold]Command:[/bold] {task.command}")
+
+        elif task.operation in ("push", "pull"):
+            if task.operation == "pull":
+                lines.append(
+                    f"[bold]Transfer:[/bold] {task.local_path} <- {task.remote_path}"
+                )
+            if task.operation == "push":
+                lines.append(
+                    f"[bold]Transfer:[/bold] {task.local_path} -> {task.remote_path}"
+                )
+
+        lines.append(
+            f"[bold]Host Reachable:[/bold] {'Yes' if asyncio.run(is_host_reachable(task.host, task.port)) else 'No'}"
+        )
+
+        body = "\n".join(lines)
+        panel = Panel(
+            body,
+            title=f"[cyan]{task.host}:{task.port}[/cyan]",
+            border_style="white",
+            title_align="left",
+        )
+        console.print(panel)
 
 
 def print_error(message: str | Exception, exit: bool = False) -> None:
