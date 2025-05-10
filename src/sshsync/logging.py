@@ -13,7 +13,7 @@ def get_log_path() -> Path:
     else:
         log_dir = home.joinpath(".local", "state", "sshsync")
 
-    if not log_dir:
+    if not log_dir.exists():
         log_dir.mkdir(exist_ok=True, parents=True)
     return log_dir
 
