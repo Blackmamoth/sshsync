@@ -25,8 +25,13 @@ class SSHClient:
         Returns:
             bool: True if the ssh key is encrypted, False otherwise
         """
+
+        # Check if key_path is empty or points to a directory
+        path = Path(key_path).expanduser()
+        if not key_path or not path.exists() or path.is_dir():
+            return False  # Cannot be encrypted if it's not a valid file
         try:
-            asyncssh.read_private_key(key_path, passphrase=None)
+            _ = asyncssh.read_private_key(key_path, passphrase=None)
             return False
         except asyncssh.KeyEncryptionError:
             return True
@@ -130,8 +135,12 @@ class SSHClient:
                 "username": host.username,
                 "port": host.port,
             }
-            if not self._is_key_encrypted(host.identity_file):
-                conn_kwargs["client_keys"] = [host.identity_file]
+
+            # Only use identity_file if it's a valid file
+            if host.identity_file and Path(host.identity_file).expanduser().is_file():
+                if not self._is_key_encrypted(host.identity_file):
+                    conn_kwargs["client_keys"] = [host.identity_file]
+            
             async with asyncssh.connect(**conn_kwargs) as conn:
                 result = await conn.run(cmd, check=True, timeout=self.timeout)
                 data = {
@@ -230,8 +239,9 @@ class SSHClient:
             "username": host.username,
             "port": host.port,
         }
-        if not self._is_key_encrypted(host.identity_file):
-            conn_kwargs["client_keys"] = [host.identity_file]
+        if host.identity_file and Path(host.identity_file).expanduser().is_file():
+            if not self._is_key_encrypted(host.identity_file):
+                conn_kwargs["client_keys"] = [host.identity_file]
         try:
             async with asyncssh.connect(**conn_kwargs) as conn:
                 await asyncssh.scp(
@@ -308,8 +318,9 @@ class SSHClient:
             "username": host.username,
             "port": host.port,
         }
-        if not self._is_key_encrypted(host.identity_file):
-            conn_kwargs["client_keys"] = [host.identity_file]
+        if host.identity_file and Path(host.identity_file).expanduser().is_file():
+            if not self._is_key_encrypted(host.identity_file):
+                conn_kwargs["client_keys"] = [host.identity_file]
         try:
             async with asyncssh.connect(**conn_kwargs) as conn:
                 await asyncssh.scp(
