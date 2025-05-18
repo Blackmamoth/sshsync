@@ -17,6 +17,10 @@
 - 📊 Operation history and logging
 - 🔍 **Dry-run mode** to preview actions before execution
 
+## Demo 📽️
+
+![Demo](./demo.gif)
+
 ## Installation 📦
 
 ### Requirements
