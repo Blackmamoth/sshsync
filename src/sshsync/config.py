@@ -1,9 +1,13 @@
 from pathlib import Path
 
+import structlog
 import yaml
 from sshconf import read_ssh_config
 
+from sshsync.logging import setup_logging
 from sshsync.schemas import Host, YamlConfig
+
+setup_logging()
 
 
 class ConfigError(Exception):
@@ -21,6 +25,7 @@ class Config:
         """
         Initializes the configuration, ensuring the config file exists.
         """
+        self.logger = structlog.get_logger()
         home_dir = Path.home()
 
         self.config_path = Path(home_dir).joinpath(".config", "sshsync", "config.yml")
@@ -191,7 +196,9 @@ class Config:
         for alias in set(hosts):
             h = self.get_host_by_name(alias)
             if h is None:
-                print(f"Host with alias '{alias}' not found in ~/.ssh/config")
+                self.logger.warning(
+                    f"Host with alias '{alias}' not found in ~/.ssh/config"
+                )
                 continue
 
             if group not in h.groups:

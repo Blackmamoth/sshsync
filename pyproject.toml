@@ -1,7 +1,7 @@
 [project]
 name = "sshsync"
-version = "0.9.0"
-description = "sshsync is a CLI tool to run shell commands across multiple servers via SSH, either on specific groups or all servers. Upcoming features include file push/pull support."
+version = "0.10.0"
+description = "sshsync is a CLI tool to run shell commands across multiple servers via SSH, either on specific groups or all servers. It also supports pushing and pulling files to and from remote hosts."
 readme = "README.md"
 authors = [
     { name = "Blackmamoth", email = "blackmamoth83@gmail.com" }

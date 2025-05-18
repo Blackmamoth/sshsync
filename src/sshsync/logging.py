@@ -23,6 +23,7 @@ def setup_logging():
         processors=[
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.add_log_level,
+            structlog.processors.dict_tracebacks,
             structlog.processors.JSONRenderer(),
         ],
         logger_factory=structlog.WriteLoggerFactory(
