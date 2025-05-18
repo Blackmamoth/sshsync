@@ -232,13 +232,15 @@ def print_ssh_results(results: list[SSHResult]) -> None:
     table = Table(title="SSHSYNC Results")
     table.add_column("Host", style="cyan", no_wrap=True)
     table.add_column("Status", style="green")
+    table.add_column("Exit Code", style="red")
     table.add_column("Output", style="magenta")
 
     for result in results:
         if result is not None and not isinstance(result, BaseException):
             status = "[green]Success[/green]" if result.success else "[red]Failed[/red]"
             output = f"{result.output.strip()}\n" if result.output else "-"
-            table.add_row(result.host, status, str(output))
+            exit_status = result.exit_status if result.exit_status else "0"
+            table.add_row(result.host, status, str(exit_status), str(output))
 
     console.print(table)
 

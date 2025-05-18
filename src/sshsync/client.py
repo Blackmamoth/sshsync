@@ -5,6 +5,7 @@ from typing import Literal
 
 import asyncssh
 import structlog
+from rich.progress import Progress
 
 from sshsync.config import Config
 from sshsync.logging import setup_logging
@@ -16,8 +17,8 @@ setup_logging()
 class SSHClient:
     def __init__(self) -> None:
         """Initialize the SSHClient with configuration data from the config file."""
-        self.config = Config()
         self.logger = structlog.get_logger()
+        self.config = Config()
 
     def _is_key_encrypted(self, key_path: str) -> bool:
         """Check if the given ssh key is protected by a passphrase
@@ -25,6 +26,10 @@ class SSHClient:
         Returns:
             bool: True if the ssh key is encrypted, False otherwise
         """
+        # Check if key_path is empty or points to a directory
+        path = Path(key_path).expanduser()
+        if not key_path or not path.exists() or path.is_dir():
+            return False  # Cannot be encrypted if it's not a valid file
         try:
             asyncssh.read_private_key(key_path, passphrase=None)
             return False
@@ -32,8 +37,8 @@ class SSHClient:
             return True
         except ValueError:
             return True
-        except Exception as e:
-            print(f"Error reading key: {e}")
+        except Exception:
+            self.logger.exception("Error reading key")
             raise
 
     async def _run_command_across_hosts(
@@ -49,9 +54,11 @@ class SSHClient:
             list[SSHResult]: A list of results from each host.
         """
 
-        return await asyncio.gather(
-            *[self._execute_command(host, cmd) for host in hosts]
-        )
+        results = []
+        with Progress() as progress:
+            tasks = [self._execute_command(host, cmd, progress) for host in hosts]
+            results = await asyncio.gather(*tasks)
+        return results
 
     def begin_dry_run_exec(
         self, cmd: str, hosts: list[Host], operation: Literal["exec", "push", "pull"]
@@ -114,26 +121,78 @@ class SSHClient:
             for host in hosts
         ]
 
-    async def _execute_command(self, host: Host, cmd: str) -> SSHResult:
-        """Establish an SSH connection to a host and run a command.
+    def _handle_ssh_exceptions(self, e: Exception, host: Host) -> SSHResult:
+        """
+        Logs SSH exceptions and returns a failed SSHResult.
 
         Args:
-            host (HostType): The connection details of the host.
-            cmd (str): The command to execute remotely.
+            e (Exception): Exception raised during SSH.
+            host (Host): Host where the error occurred.
 
         Returns:
-            SSHResult: The result of the command execution.
+            SSHResult: Result with error info and success=False.
         """
+        data = {
+            "host": host.address,
+            "exit_status": None,
+            "success": False,
+        }
+
+        if isinstance(e, asyncssh.KeyEncryptionError):
+            data["output"] = f"Encrypted private key, passphrase required: {e}"
+        elif isinstance(e, asyncssh.PermissionDenied):
+            data["output"] = f"Permission denied: {e.reason}"
+        elif isinstance(e, asyncssh.TimeoutError):
+            data["output"] = f"Timeout error: {e.reason}"
+            data["exit_status"] = e.exit_status
+        elif isinstance(e, asyncssh.ProcessError):
+            data["output"] = f"Command failed: {e}"
+            data["exit_status"] = e.exit_status
+        elif isinstance(e, asyncssh.SFTPError):
+            data["output"] = f"SFTP error: {e.reason}"
+        elif isinstance(e, asyncssh.ChannelOpenError):
+            data["output"] = f"Channel open error: {e.reason}"
+        else:
+            data["output"] = f"Unexpected error: {e}"
+
+        self.logger.exception(data["output"], **data)
+        return SSHResult(**data)
+
+    async def _execute_command(
+        self, host: Host, cmd: str, progress: Progress
+    ) -> SSHResult:
+        """Establish an SSH connection to a host and run a command."""
+
+        task = progress.add_task(
+            f"[cyan]{host.alias}[/cyan]: Connecting...", total=None, start=False
+        )
+
         try:
+            progress.start_task(task)
             conn_kwargs = {
                 "host": host.address,
                 "username": host.username,
                 "port": host.port,
             }
-            if not self._is_key_encrypted(host.identity_file):
-                conn_kwargs["client_keys"] = [host.identity_file]
+
+            # Only use identity_file if it's a valid file
+            if host.identity_file and Path(host.identity_file).expanduser().is_file():
+                if not self._is_key_encrypted(host.identity_file):
+                    conn_kwargs["client_keys"] = [host.identity_file]
+
             async with asyncssh.connect(**conn_kwargs) as conn:
+                progress.update(
+                    task,
+                    description=f"[green]{host.alias}: Connected. Running command...[/green]",
+                )
+
                 result = await conn.run(cmd, check=True, timeout=self.timeout)
+
+                progress.update(
+                    task, description=f"[green]{host.alias}: Command completed[/green]"
+                )
+                progress.remove_task(task)
+
                 data = {
                     "host": host.address,
                     "exit_status": result.exit_status,
@@ -144,44 +203,13 @@ class SSHClient:
                 }
                 self.logger.info("SSH Execution completed", **data)
                 return SSHResult(**data)
-        except asyncssh.KeyEncryptionError as e:
-            data = {
-                "host": host.address,
-                "exit_status": None,
-                "success": False,
-                "output": f"Encrypted private key, passphrase required: {e}",
-            }
-            self.logger.error("SSH error: Encrypted private key", **data)
-            return SSHResult(**data)
-        except asyncssh.PermissionDenied as e:
-            data = {
-                "host": host.address,
-                "exit_status": None,
-                "success": False,
-                "output": f"Permission denied: {e.reason}",
-            }
-            self.logger.error("SSH error: Permission denied", **data)
-            return SSHResult(**data)
-
-        except asyncssh.ProcessError as e:
-            data = {
-                "host": host.address,
-                "exit_status": e.exit_status,
-                "success": False,
-                "output": f"Command failed: {e.stderr}",
-            }
-            self.logger.error("SSH error: Command failed", **data)
-            return SSHResult(**data)
 
         except Exception as e:
-            data = {
-                "host": host.address,
-                "exit_status": None,
-                "success": False,
-                "output": f"Unexpected error: {e}",
-            }
-            self.logger.error("SSH error: Unexpected error", **data)
-            return SSHResult(**data)
+            progress.update(
+                task, description=f"[red]{host.alias}: Error occurred[/red]"
+            )
+            progress.remove_task(task)
+            return self._handle_ssh_exceptions(e, host)
 
     async def _transfer_file_across_hosts(
         self,
@@ -201,18 +229,22 @@ class SSHClient:
         Returns:
             list[SSHResult]: Transfer results from each host.
         """
-        return await asyncio.gather(
-            *[
+        results = []
+        with Progress() as progress:
+            tasks = [
                 (
-                    self._push(local_path, remote_path, host)
+                    self._push(local_path, remote_path, host, progress)
                     if transfer_action == FileTransferAction.PUSH
-                    else self._pull(local_path, remote_path, host)
+                    else self._pull(local_path, remote_path, host, progress)
                 )
                 for host in hosts
             ]
-        )
+            results = await asyncio.gather(*tasks)
+            return results
 
-    async def _push(self, local_path: str, remote_path: str, host: Host) -> SSHResult:
+    async def _push(
+        self, local_path: str, remote_path: str, host: Host, progress: Progress
+    ) -> SSHResult:
         """Push a local file or directory to a remote host over SSH.
 
         Args:
@@ -223,20 +255,37 @@ class SSHClient:
         Returns:
             SSHResult: Result of the file transfer.
         """
+        task = progress.add_task(
+            f"[cyan]{host.alias}[/cyan]: Connecting...", total=None, start=False
+        )
+
         if local_path.endswith("/") and Path(local_path).is_dir():
             local_path = local_path.rstrip("/")
+
         conn_kwargs = {
             "host": host.address,
             "username": host.username,
             "port": host.port,
         }
-        if not self._is_key_encrypted(host.identity_file):
-            conn_kwargs["client_keys"] = [host.identity_file]
+
+        if host.identity_file and Path(host.identity_file).expanduser().is_file():
+            if not self._is_key_encrypted(host.identity_file):
+                conn_kwargs["client_keys"] = [host.identity_file]
+
         try:
+            progress.start_task(task)
             async with asyncssh.connect(**conn_kwargs) as conn:
+                progress.update(
+                    task,
+                    description=f"[green]{host.alias}: Connected. Upload Started...[/green]",
+                )
                 await asyncssh.scp(
                     local_path, (conn, remote_path), recurse=self.recurse
                 )
+                progress.update(
+                    task, description=f"[green]{host.alias}: Upload completed[/green]"
+                )
+                progress.remove_task(task)
                 data = {
                     "host": host.address,
                     "exit_status": EX_OK,
@@ -245,47 +294,16 @@ class SSHClient:
                 }
                 self.logger.info("Upload successful", **data)
                 return SSHResult(**data)
-        except asyncssh.PermissionDenied as e:
-            data = {
-                "host": host.address,
-                "exit_status": None,
-                "success": False,
-                "output": f"Permission denied: {e.reason}",
-            }
-            self.logger.error("SSH error: Permission denied", **data)
-            return SSHResult(**data)
-
-        except asyncssh.SFTPError as e:
-            data = {
-                "host": host.address,
-                "exit_status": None,
-                "success": False,
-                "output": f"SFTP error: {e.reason}",
-            }
-            self.logger.error("SSH error: SFTP error", **data)
-            return SSHResult(**data)
-
-        except asyncssh.ChannelOpenError as e:
-            data = {
-                "host": host.address,
-                "exit_status": None,
-                "success": False,
-                "output": f"Channel open error: {e.reason}",
-            }
-            self.logger.error("SSH error: Channel open error", **data)
-            return SSHResult(**data)
-
         except Exception as e:
-            data = {
-                "host": host.address,
-                "exit_status": None,
-                "success": False,
-                "output": f"Unexpected error: {e}",
-            }
-            self.logger.error("SSH error: Unexpected error", **data)
-            return SSHResult(**data)
+            progress.update(
+                task, description=f"[red]{host.alias}: Error occurred[/red]"
+            )
+            progress.remove_task(task)
+            return self._handle_ssh_exceptions(e, host)
 
-    async def _pull(self, local_path: str, remote_path: str, host: Host) -> SSHResult:
+    async def _pull(
+        self, local_path: str, remote_path: str, host: Host, progress: Progress
+    ) -> SSHResult:
         """Pull a file or directory from a remote host to the local machine over SSH.
 
         Args:
@@ -296,6 +314,10 @@ class SSHClient:
         Returns:
             SSHResult: Result of the file transfer.
         """
+        task = progress.add_task(
+            f"[cyan]{host.alias}[/cyan]: Connecting...", total=None, start=False
+        )
+
         base_name = Path(remote_path).name
         unique_path = Path(local_path).joinpath(f"{host.address}_{base_name}")
         local_dir = Path(local_path)
@@ -308,13 +330,25 @@ class SSHClient:
             "username": host.username,
             "port": host.port,
         }
-        if not self._is_key_encrypted(host.identity_file):
-            conn_kwargs["client_keys"] = [host.identity_file]
+
+        if host.identity_file and Path(host.identity_file).expanduser().is_file():
+            if not self._is_key_encrypted(host.identity_file):
+                conn_kwargs["client_keys"] = [host.identity_file]
+
         try:
+            progress.start_task(task)
             async with asyncssh.connect(**conn_kwargs) as conn:
+                progress.update(
+                    task,
+                    description=f"[green]{host.alias}: Connected. Download Started...[/green]",
+                )
                 await asyncssh.scp(
                     (conn, remote_path), unique_path, recurse=self.recurse
                 )
+                progress.update(
+                    task, description=f"[green]{host.alias}: Download completed[/green]"
+                )
+                progress.remove_task(task)
                 data = {
                     "host": host.address,
                     "exit_status": EX_OK,
@@ -323,45 +357,12 @@ class SSHClient:
                 }
                 self.logger.info("Download successful", **data)
                 return SSHResult(**data)
-        except asyncssh.PermissionDenied as e:
-            data = {
-                "host": host.address,
-                "exit_status": None,
-                "success": False,
-                "output": f"Permission denied: {e.reason}",
-            }
-            self.logger.error("SSH error: Permission denied", **data)
-            return SSHResult(**data)
-
-        except asyncssh.SFTPError as e:
-            data = {
-                "host": host.address,
-                "exit_status": None,
-                "success": False,
-                "output": f"SFTP error: {e.reason}",
-            }
-            self.logger.error("SSH error: SFTP error", **data)
-            return SSHResult(**data)
-
-        except asyncssh.ChannelOpenError as e:
-            data = {
-                "host": host.address,
-                "exit_status": None,
-                "success": False,
-                "output": f"Channel open error: {e.reason}",
-            }
-            self.logger.error("SSH error: Channel open error", **data)
-            return SSHResult(**data)
-
         except Exception as e:
-            data = {
-                "host": host.address,
-                "exit_status": None,
-                "success": False,
-                "output": f"Unexpected error: {e}",
-            }
-            self.logger.error("SSH error: Unexpected error", **data)
-            return SSHResult(**data)
+            progress.update(
+                task, description=f"[red]{host.alias}: Error occurred[/red]"
+            )
+            progress.remove_task(task)
+            return self._handle_ssh_exceptions(e, host)
 
     def begin(
         self,
