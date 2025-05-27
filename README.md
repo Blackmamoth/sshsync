@@ -94,6 +94,7 @@ sshsync group [OPTIONS] NAME CMD
 
 - `--timeout INTEGER` - Timeout in seconds for SSH command execution (default: 10)
 - `--dry-run` - Show command and host info without executing
+- `--regex` - Filter group members by matching alias with a regex pattern
 
 **Examples:**
 
@@ -117,6 +118,7 @@ sshsync push [OPTIONS] LOCAL_PATH REMOTE_PATH
 
 - `--all` - Push to all configured hosts
 - `--group TEXT` - Push to a specific group of hosts
+- `--regex` - Filter group members by matching alias with a regex pattern (can only be used with `--group`)
 - `--host TEXT` - Push to a single specific host
 - `--recurse` - Recursively push a directory and its contents
 - `--dry-run` - Show transfer and host info without executing
@@ -144,6 +146,7 @@ sshsync pull [OPTIONS] REMOTE_PATH LOCAL_PATH
 
 - `--all` - Pull from all configured hosts
 - `--group TEXT` - Pull from a specific group of hosts
+- `--regex` - Filter group members by matching alias with a regex pattern (can only be used with `--group`)
 - `--host TEXT` - Pull from a single specific host
 - `--recurse` - Recursively pull a directory and its contents
 - `--dry-run` - Show transfer and host info without executing
