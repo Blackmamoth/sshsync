@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import structlog
@@ -154,11 +155,12 @@ class Config:
                 indent=4,
             )
 
-    def get_hosts_by_group(self, group: str) -> list[Host]:
+    def get_hosts_by_group(self, group: str, regex: str = "") -> list[Host]:
         """Return all hosts that belong to the specified group.
 
         Args:
             group (str): Group name to filter hosts by.
+            regex (str): Only include host aliases with the matching regex
 
         Returns:
             list[Host]: Hosts that are members of the group.
@@ -166,7 +168,9 @@ class Config:
         return [
             host
             for host in self.hosts
-            if group in host.groups and host.alias != "default"
+            if group in host.groups
+            and host.alias != "default"
+            and (not regex or re.search(regex, host.alias))
         ]
 
     def get_host_by_name(self, name: str) -> Host | None:

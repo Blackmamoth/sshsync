@@ -1,5 +1,6 @@
 import asyncio
 import ipaddress
+import re
 import socket
 from pathlib import Path
 
@@ -72,6 +73,15 @@ def is_valid_ip(ip: str) -> bool:
         ipaddress.ip_address(ip)
         return True
     except ValueError:
+        return False
+
+
+def is_valid_regex(pattern: str) -> bool:
+    "Check if the string is a valid regex pattern"
+    try:
+        re.compile(pattern)
+        return True
+    except Exception:
         return False
 
 

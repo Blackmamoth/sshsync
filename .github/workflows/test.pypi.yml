@@ -1,0 +1,52 @@
+name: Publish to Test PyPI
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  build_package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build release distribution
+        run: |
+          uv build
+
+      - name: Upload distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-release-dists
+          path: dist/
+
+  test-pypi-publish:
+    runs-on: ubuntu-latest
+    needs: build_package
+    permissions:
+      id-token: write
+
+    environment:
+      name: test-pypi
+
+    steps:
+      - name: Retrieve release distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: test-release-dists
+          path: dist/
+
+      - name: Publish release distributions to Test PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          repository-url: https://test.pypi.org/legacy/

@@ -10,6 +10,7 @@ from sshsync.utils import (
     add_hosts_to_group,
     assign_groups_to_hosts,
     check_path_exists,
+    is_valid_regex,
     list_configuration,
     print_dry_run_results,
     print_error,
@@ -45,6 +46,9 @@ def all(
     try:
         config = Config()
 
+        if not config.hosts:
+            print_error("No hosts", True)
+
         ssh_client = SSHClient()
         if dry_run:
             dry_run_results = ssh_client.begin_dry_run_exec(
@@ -64,6 +68,9 @@ def all(
 def group(
     name: str = typer.Argument(..., help="Name of the host group to target."),
     cmd: str = typer.Argument(..., help="The shell command to execute on the group."),
+    regex: str = typer.Option(
+        "", help="Filter group members by matching alias with a regex pattern."
+    ),
     timeout: int = typer.Option(
         10, help="Timeout in seconds for SSH command execution."
     ),
@@ -77,12 +84,19 @@ def group(
     Args:
         name (str): The name of the host group to target.
         cmd (str): The shell command to execute remotely.
+        regex (str): Filter group members by matching alias with regex pattern.
         timeout (int): Timeout (in seconds) for both SSH connection and command execution.
         dry_run (bool): Show command and host info without executing.
     """
     try:
+        if regex and not is_valid_regex(regex):
+            print_error("Invalid regex", True)
+
         config = Config()
-        hosts = config.get_hosts_by_group(name)
+        hosts = config.get_hosts_by_group(name, regex)
+
+        if not hosts:
+            print_error("Invalid group", True)
 
         ssh_client = SSHClient()
         if dry_run:
@@ -163,6 +177,9 @@ def push(
     ),
     all: bool = typer.Option(False, help="Push to all configured hosts."),
     group: str = typer.Option("", help="Push to a specific group of hosts."),
+    regex: str = typer.Option(
+        "", help="Filter group members by matching alias with a regex pattern."
+    ),
     host: str = typer.Option("", help="Push to a single specific host."),
     recurse: bool = typer.Option(
         False, help="Recursively push a directory and its contents."
@@ -182,14 +199,30 @@ def push(
         remote_path (str): The destination path on the remote host(s).
         all (bool): Push to all hosts.
         group (str): Push to a specified group of hosts.
+        regex (str): Filter group members by matching alias with regex pattern.
         host (str): Push to a specified individual host.
         recurse (bool): If True, recursively push a directory and all its contents.
         dry_run (bool): Show transfer and host info without executing.
     """
-    options = [all, bool(group != ""), bool(host != "")]
+    has_all = all
+    has_group = bool(group != "")
+    has_host = bool(host != "")
+    has_regex = bool(regex != "")
+
+    if has_regex and not is_valid_regex(regex):
+        print_error("Invalid regex", True)
+
+    options = [has_all, has_group, has_host]
+
     if sum(options) != 1:
         print_error(
             "You must specify exactly one of --all, --group, or --host.",
+            True,
+        )
+
+    if has_regex and not has_group:
+        print_error(
+            "--regex can only be used with --group.",
             True,
         )
 
@@ -205,7 +238,7 @@ def push(
             config.configured_hosts()
             if all
             else (
-                config.get_hosts_by_group(group)
+                config.get_hosts_by_group(group, regex)
                 if group
                 else [host_obj]
                 if host_obj is not None
@@ -241,6 +274,9 @@ def pull(
     ),
     all: bool = typer.Option(False, "--all", help="Pull from all configured hosts."),
     group: str = typer.Option("", help="Pull from a specific group of hosts."),
+    regex: str = typer.Option(
+        "", help="Filter group members by matching alias with a regex pattern."
+    ),
     host: str = typer.Option("", help="Pull from a single specific host."),
     recurse: bool = typer.Option(
         False, help="Recursively pull a directory and its contents."
@@ -260,14 +296,30 @@ def pull(
         local_path (str): The local file path.
         all (bool): Pull from all hosts.
         group (str): Pull from a specified group of hosts.
+        regex (str): Filter group members by matching alias with regex pattern.
         host (str): Pull from a specified individual host.
         recurse (bool): If True, recursively pull directories and all their contents.
         dry_run (bool): Show transfer and host info without executing.
     """
-    options = [all, bool(group), bool(host)]
+    has_all = all
+    has_group = bool(group != "")
+    has_host = bool(host != "")
+    has_regex = bool(regex != "")
+
+    if has_regex and not is_valid_regex(regex):
+        print_error("Invalid regex", True)
+
+    options = [has_all, has_group, has_host]
+
     if sum(options) != 1:
         print_error(
             "You must specify exactly one of --all, --group, or --host.",
+            True,
+        )
+
+    if has_regex and not has_group:
+        print_error(
+            "--regex can only be used with --group.",
             True,
         )
 
@@ -283,7 +335,7 @@ def pull(
             config.configured_hosts()
             if all
             else (
-                config.get_hosts_by_group(group)
+                config.get_hosts_by_group(group, regex)
                 if group
                 else [host_obj]
                 if host_obj is not None
