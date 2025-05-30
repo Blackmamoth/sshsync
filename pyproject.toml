@@ -1,6 +1,6 @@
 [project]
 name = "sshsync"
-version = "0.11.1"
+version = "0.11.2"
 description = "sshsync is a CLI tool to run shell commands across multiple servers via SSH, either on specific groups or all servers. It also supports pushing and pulling files to and from remote hosts."
 readme = "README.md"
 authors = [
@@ -29,9 +29,12 @@ Homepage = "https://github.com/Blackmamoth/sshsync"
 Issues = "https://github.com/Blackmamoth/sshsync/issues"
 
 [tool.hatch.build]
-include = [
-  "src/sshsync",
-  "pyproject.toml",
-  "README.md",
-  "LICENSE"
+exclude = [
+  ".git/",
+  ".github/",
+  ".gitignore",
+  ".python-version",
+  "demo.gif",
+  "pyrightconfig.json",
+  "uv.lock",
 ]
