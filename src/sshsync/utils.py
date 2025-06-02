@@ -3,7 +3,10 @@ import ipaddress
 import re
 import socket
 from pathlib import Path
+from typing import Literal
 
+import asyncssh
+import keyring
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -11,7 +14,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 from sshsync.config import Config
-from sshsync.schemas import Host, SSHDryRun, SSHResult
+from sshsync.schemas import Host, HostAuth, SSHDryRun, SSHResult
 
 console = Console()
 
@@ -65,6 +68,85 @@ def assign_groups_to_hosts(hosts: list[str]) -> dict[str, list[str]]:
         host_group_mapping[host] = groups
 
     return host_group_mapping
+
+
+
+
+def is_key_private(key_path: str) -> bool:
+    """Check if the given ssh key is protected by a passphrase
+
+    Returns:
+        bool: True if the ssh key is encrypted, False otherwise
+    """
+    # Check if key_path is empty or points to a directory
+    path = Path(key_path).expanduser()
+    if not key_path or not path.exists() or path.is_dir():
+        return False  # Cannot be encrypted if it's not a valid file
+    try:
+        asyncssh.read_private_key(key_path, passphrase=None)
+        return False
+    except asyncssh.KeyEncryptionError:
+        return True
+    except ValueError:
+        return True
+    except Exception:
+        return True
+
+
+def check_key_passphrase(key_path: str, passphrase: str) -> bool:
+    path = Path(key_path).expanduser()
+    if not key_path or not path.exists() or path.is_dir():
+        return False
+    try:
+        asyncssh.read_private_key(key_path, passphrase)
+        return True
+    except Exception:
+        return False
+
+
+def get_pass(
+    host: str, pass_type: Literal["passphrase", "password"], key_path: str = ""
+) -> str:
+    while True:
+        val = Prompt.ask(f"Please enter {pass_type} for host `{host}`", password=True)
+        if not val.strip():
+            continue
+        if pass_type == "passphrase" and not check_key_passphrase(
+            key_path, passphrase=val
+        ):
+            print("Incorrect passphrase!!!")
+            continue
+        return val
+
+def set_keyring(host: str, password: str):
+    keyring.set_password("sshsync", host, password)
+    
+
+def add_auth(hosts: list[dict[str, str]]) -> dict[str, HostAuth]:
+    print("Enter password/passphrase for each of the following hosts")
+
+    host_auth: dict[str, HostAuth] = dict()
+
+    for host in hosts:
+        alias = host.get("alias", "")
+        identity_file = host.get("identity_file")
+        if identity_file:
+            if is_key_private(identity_file):
+                passphrase = get_pass(alias, "passphrase", identity_file)
+                set_keyring(alias, passphrase)
+                host_auth[alias] = HostAuth("key", True)
+            else:
+                host_auth[alias] = HostAuth("key", False)
+        else:
+            auth_method = Prompt.ask(f"What auth method does host `{alias}` use", choices=["key", "password"])
+            if auth_method == "password":
+                password = get_pass(alias, "password")
+                set_keyring(alias, password)
+                host_auth[alias] = HostAuth("password", None)
+            else:
+                host_auth[alias] = HostAuth("key", None)
+
+    return host_auth
 
 
 def is_valid_ip(ip: str) -> bool:

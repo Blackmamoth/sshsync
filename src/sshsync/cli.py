@@ -6,6 +6,7 @@ from sshsync.client import SSHClient
 from sshsync.config import Config, ConfigError
 from sshsync.schemas import FileTransferAction
 from sshsync.utils import (
+    add_auth,
     add_host,
     add_hosts_to_group,
     assign_groups_to_hosts,
@@ -167,6 +168,18 @@ def sync():
         print_error(e, True)
 
 
+@app.command(help="Set authentication method for one or more host")
+def set_auth():
+    try:
+        config = Config()
+        hosts = config.get_unconfigured_hosts()
+        host_auth = add_auth(hosts)
+        config.save_host_auth(host_auth)
+        print_message("Authentication methods for hosts have been saved to config")
+    except Exception as e:
+        print(e, True)
+
+
 @app.command(help="Push a file to remote hosts using SCP.")
 def push(
     local_path: str = typer.Argument(
@@ -240,9 +253,7 @@ def push(
             else (
                 config.get_hosts_by_group(group, regex)
                 if group
-                else [host_obj]
-                if host_obj is not None
-                else []
+                else [host_obj] if host_obj is not None else []
             )
         )
 
@@ -337,9 +348,7 @@ def pull(
             else (
                 config.get_hosts_by_group(group, regex)
                 if group
-                else [host_obj]
-                if host_obj is not None
-                else []
+                else [host_obj] if host_obj is not None else []
             )
         )
 

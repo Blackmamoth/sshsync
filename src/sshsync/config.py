@@ -6,7 +6,7 @@ import yaml
 from sshconf import read_ssh_config
 
 from sshsync.logging import setup_logging
-from sshsync.schemas import Host, YamlConfig
+from sshsync.schemas import Host, HostAuth, YamlConfig
 
 setup_logging()
 
@@ -50,7 +50,7 @@ class Config:
         return list(filter(lambda x: x.alias != "default", self.hosts))
 
     def _default_config(self) -> YamlConfig:
-        return YamlConfig(groups=dict())
+        return YamlConfig(groups=dict(), host_auth=dict())
 
     def ensure_config_directory_exists(self) -> None:
         """Ensures the config directory and file exist, creating them if necessary."""
@@ -142,8 +142,9 @@ class Config:
                 return self._default_config()
 
             groups: dict[str, list[str]] = config.get("groups", dict())
+            host_auth: dict[str, HostAuth] = config.get("host_auth", dict())
 
-            return YamlConfig(groups=groups)
+            return YamlConfig(groups=groups, host_auth=host_auth)
 
     def _save_yaml(self) -> None:
         """Saves the current configuration to the YAML file."""
@@ -237,6 +238,13 @@ class Config:
             if not host.groups and host.alias != "default"
         ]
 
+    def get_unconfigured_hosts(self) -> list[dict[str, str]]:
+        return [
+            {"alias": host.alias, "identity_file": host.identity_file}
+            for host in self.hosts
+            if self.config.host_auth.get(host.alias) == None
+        ]
+
     def assign_groups_to_hosts(self, host_group_mapping: dict[str, list[str]]) -> None:
         """
         Assign groups to hosts and update config.
@@ -251,6 +259,10 @@ class Config:
                 elif host not in self.config.groups[group]:
                     self.config.groups[group].append(host)
 
+        self._save_yaml()
+
+    def save_host_auth(self, host_auth_details: dict[str, HostAuth]) -> None:
+        self.config.host_auth = host_auth_details
         self._save_yaml()
 
     def add_new_host(self, host: Host) -> None:

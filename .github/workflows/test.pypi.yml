@@ -7,6 +7,7 @@ on:
 
 jobs:
   build_package:
+    if: contains(github.event.head_commit.message, 'feat') || contains(github.event.head_commit.message, 'fix')
     runs-on: ubuntu-latest
 
     steps:
@@ -30,6 +31,7 @@ jobs:
           path: dist/
 
   test-pypi-publish:
+    if: contains(github.event.head_commit.message, 'feat') || contains(github.event.head_commit.message, 'fix')
     runs-on: ubuntu-latest
     needs: build_package
     permissions:

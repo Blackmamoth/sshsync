@@ -41,6 +41,12 @@ class Host:
 
 
 @dataclass
+class HostAuth:
+    auth: Literal["key", "password"]
+    key_has_passphrase: bool | None
+
+
+@dataclass
 class YamlConfig:
     """
     Represents the YAML configuration containing a list of hosts and groups.
@@ -50,6 +56,7 @@ class YamlConfig:
     """
 
     groups: dict[str, list[str]]
+    host_auth: dict[str, HostAuth]
 
     def as_dict(self) -> dict:
         """
