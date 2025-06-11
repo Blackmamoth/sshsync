@@ -177,7 +177,7 @@ def set_auth():
         config.save_host_auth(host_auth)
         print_message("Authentication methods for hosts have been saved to config")
     except Exception as e:
-        print(e, True)
+        print_error(e, True)
 
 
 @app.command(help="Push a file to remote hosts using SCP.")

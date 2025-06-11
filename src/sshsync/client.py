@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Literal
 
 import asyncssh
+import keyring
 import structlog
 from rich.progress import Progress
 
@@ -158,6 +159,9 @@ class SSHClient:
         self.logger.exception(data["output"], **data)
         return SSHResult(**data)
 
+    def get_host_pass(self, host: str) -> str | None:
+        return keyring.get_password("sshsync", host)
+
     async def _execute_command(
         self, host: Host, cmd: str, progress: Progress
     ) -> SSHResult:
@@ -179,6 +183,16 @@ class SSHClient:
             if host.identity_file and Path(host.identity_file).expanduser().is_file():
                 if not self._is_key_encrypted(host.identity_file):
                     conn_kwargs["client_keys"] = [host.identity_file]
+                else:
+                    host_pass = self.get_host_pass(host.alias)
+                    if host_pass is not None:
+                        host_auth = self.config.config.host_auth.get(host.alias, None)
+                        if host_auth is not None:
+                            if host_auth.auth == "key":
+                                conn_kwargs["client_keys"] = [host.identity_file]
+                                conn_kwargs["passphrase"] = host_pass
+                            else:
+                                conn_kwargs["password"] = host_pass
 
             async with asyncssh.connect(**conn_kwargs) as conn:
                 progress.update(
@@ -271,6 +285,16 @@ class SSHClient:
         if host.identity_file and Path(host.identity_file).expanduser().is_file():
             if not self._is_key_encrypted(host.identity_file):
                 conn_kwargs["client_keys"] = [host.identity_file]
+            else:
+                host_pass = self.get_host_pass(host.alias)
+                if host_pass is not None:
+                    host_auth = self.config.config.host_auth.get(host.alias, None)
+                    if host_auth is not None:
+                        if host_auth.auth == "key":
+                            conn_kwargs["client_keys"] = [host.identity_file]
+                            conn_kwargs["passphrase"] = host_pass
+                        else:
+                            conn_kwargs["password"] = host_pass
 
         try:
             progress.start_task(task)
@@ -334,6 +358,16 @@ class SSHClient:
         if host.identity_file and Path(host.identity_file).expanduser().is_file():
             if not self._is_key_encrypted(host.identity_file):
                 conn_kwargs["client_keys"] = [host.identity_file]
+            else:
+                host_pass = self.get_host_pass(host.alias)
+                if host_pass is not None:
+                    host_auth = self.config.config.host_auth.get(host.alias, None)
+                    if host_auth is not None:
+                        if host_auth.auth == "key":
+                            conn_kwargs["client_keys"] = [host.identity_file]
+                            conn_kwargs["passphrase"] = host_pass
+                        else:
+                            conn_kwargs["password"] = host_pass
 
         try:
             progress.start_task(task)

@@ -42,7 +42,7 @@ class Config:
 
         self.ensure_config_directory_exists()
 
-        self.config = self._load_groups()
+        self.config = self._load_config()
 
         self.configure_ssh_hosts()
 
@@ -125,7 +125,7 @@ class Config:
 
         self.hosts = hosts
 
-    def _load_groups(self) -> YamlConfig:
+    def _load_config(self) -> YamlConfig:
         """
         Loads configuration from the YAML.
 
@@ -142,7 +142,11 @@ class Config:
                 return self._default_config()
 
             groups: dict[str, list[str]] = config.get("groups", dict())
-            host_auth: dict[str, HostAuth] = config.get("host_auth", dict())
+            host_auth_data: dict = config.get("host_auth", dict())
+            host_auth: dict[str, HostAuth] = dict()
+
+            for key, value in host_auth_data.items():
+                host_auth[key] = HostAuth(**value)
 
             return YamlConfig(groups=groups, host_auth=host_auth)
 
@@ -242,7 +246,7 @@ class Config:
         return [
             {"alias": host.alias, "identity_file": host.identity_file}
             for host in self.hosts
-            if self.config.host_auth.get(host.alias) == None
+            if self.config.host_auth.get(host.alias) is None
         ]
 
     def assign_groups_to_hosts(self, host_group_mapping: dict[str, list[str]]) -> None:

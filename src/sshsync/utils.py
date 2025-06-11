@@ -70,8 +70,6 @@ def assign_groups_to_hosts(hosts: list[str]) -> dict[str, list[str]]:
     return host_group_mapping
 
 
-
-
 def is_key_private(key_path: str) -> bool:
     """Check if the given ssh key is protected by a passphrase
 
@@ -118,11 +116,19 @@ def get_pass(
             continue
         return val
 
+
 def set_keyring(host: str, password: str):
     keyring.set_password("sshsync", host, password)
-    
+
 
 def add_auth(hosts: list[dict[str, str]]) -> dict[str, HostAuth]:
+    backend = str(keyring.get_keyring())
+
+    if "Plaintext" in backend or "fail" in backend:
+        raise Exception(
+            "No secure keyring backend found. Please install or configure your system keyring."
+        )
+
     print("Enter password/passphrase for each of the following hosts")
 
     host_auth: dict[str, HostAuth] = dict()
@@ -138,7 +144,9 @@ def add_auth(hosts: list[dict[str, str]]) -> dict[str, HostAuth]:
             else:
                 host_auth[alias] = HostAuth("key", False)
         else:
-            auth_method = Prompt.ask(f"What auth method does host `{alias}` use", choices=["key", "password"])
+            auth_method = Prompt.ask(
+                f"What auth method does host `{alias}` use", choices=["key", "password"]
+            )
             if auth_method == "password":
                 password = get_pass(alias, "password")
                 set_keyring(alias, password)

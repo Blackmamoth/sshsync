@@ -39,3 +39,8 @@ exclude = [
   "pyrightconfig.json",
   "uv.lock",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11.13",
+]
