@@ -6,6 +6,7 @@ from sshsync.client import SSHClient
 from sshsync.config import Config, ConfigError
 from sshsync.schemas import FileTransferAction
 from sshsync.utils import (
+    add_auth,
     add_host,
     add_hosts_to_group,
     assign_groups_to_hosts,
@@ -164,6 +165,21 @@ def sync():
         config.assign_groups_to_hosts(host_group_mapping)
         print_message("All ungrouped hosts have been assigned to the specified groups")
     except ConfigError as e:
+        print_error(e, True)
+
+
+@app.command(help="Set authentication method for one or more unconfigured hosts.")
+def set_auth():
+    """
+    Set authentication method for one or more unconfigured hosts.
+    """
+    try:
+        config = Config()
+        hosts = config.get_unconfigured_hosts()
+        host_auth = add_auth(hosts)
+        config.save_host_auth(host_auth)
+        print_message("Authentication methods for hosts have been saved to config")
+    except Exception as e:
         print_error(e, True)
 
 

@@ -5,6 +5,7 @@ import structlog
 
 
 def get_log_path() -> Path:
+    """Return the log directory path, creating it if needed."""
     home = Path.home()
     if sys.platform.startswith("win"):
         log_dir = home.joinpath("AppData", "Local", "sshsync", "logs")
@@ -19,6 +20,7 @@ def get_log_path() -> Path:
 
 
 def setup_logging():
+    """Configure structlog for file logging."""
     structlog.configure(
         processors=[
             structlog.processors.TimeStamper(fmt="iso"),

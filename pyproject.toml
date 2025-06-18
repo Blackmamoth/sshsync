@@ -1,6 +1,6 @@
 [project]
 name = "sshsync"
-version = "0.11.2"
+version = "0.12.0"
 description = "sshsync is a CLI tool to run shell commands across multiple servers via SSH, either on specific groups or all servers. It also supports pushing and pulling files to and from remote hosts."
 readme = "README.md"
 authors = [
@@ -10,6 +10,7 @@ license = { text = "MIT" }
 requires-python = ">=3.10"
 dependencies = [
     "asyncssh>=2.20.0",
+    "keyring>=25.6.0",
     "pyyaml>=6.0.2",
     "rich>=14.0.0",
     "sshconf>=0.2.7",
@@ -37,4 +38,9 @@ exclude = [
   "demo.gif",
   "pyrightconfig.json",
   "uv.lock",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11.13",
 ]
