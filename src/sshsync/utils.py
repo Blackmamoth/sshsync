@@ -92,6 +92,7 @@ def is_key_private(key_path: str) -> bool:
 
 
 def check_key_passphrase(key_path: str, passphrase: str) -> bool:
+    """Check if the given passphrase unlocks the SSH key."""
     path = Path(key_path).expanduser()
     if not key_path or not path.exists() or path.is_dir():
         return False
@@ -105,6 +106,7 @@ def check_key_passphrase(key_path: str, passphrase: str) -> bool:
 def get_pass(
     host: str, pass_type: Literal["passphrase", "password"], key_path: str = ""
 ) -> str:
+    """Prompt the user for a password or passphrase, validating if needed."""
     while True:
         val = Prompt.ask(f"Please enter {pass_type} for host `{host}`", password=True)
         if not val.strip():
@@ -118,6 +120,7 @@ def get_pass(
 
 
 def set_keyring(host: str, password: str):
+    """Store a password in the keyring for a host."""
     keyring.set_password("sshsync", host, password)
 
 

@@ -42,6 +42,14 @@ class Host:
 
 @dataclass
 class HostAuth:
+    """
+    Authentication method and passphrase info for a host.
+
+    Attributes:
+        auth (Literal["key", "password"]): Authentication type.
+        key_has_passphrase (bool | None): Whether the key has a passphrase.
+    """
+
     auth: Literal["key", "password"]
     key_has_passphrase: bool | None
 
@@ -53,18 +61,18 @@ class YamlConfig:
 
     Attributes:
         groups (dict[str, list[str]]): A mapping of group names to lists of host aliases.
+        host_auth (dict[str, HostAuth]): Mapping of host aliases to authentication info.
     """
 
     groups: dict[str, list[str]]
     host_auth: dict[str, HostAuth]
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, object]:
         """
         Converts the `YamlConfig` instance into a dictionary format.
 
         Returns:
-            dict: A dictionary representation of the `YamlConfig` instance, where keys are attribute names
-                  and values are the corresponding attribute values.
+            dict: A dictionary representation of the `YamlConfig` instance.
         """
         return asdict(self)
 

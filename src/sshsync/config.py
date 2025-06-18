@@ -47,9 +47,21 @@ class Config:
         self.configure_ssh_hosts()
 
     def configured_hosts(self):
+        """
+        Return a list of all configured hosts except the default host.
+
+        Returns:
+            list[Host]: List of configured Host objects excluding the default.
+        """
         return list(filter(lambda x: x.alias != "default", self.hosts))
 
     def _default_config(self) -> YamlConfig:
+        """
+        Return a default YamlConfig object with empty groups and host_auth.
+
+        Returns:
+            YamlConfig: Default configuration object.
+        """
         return YamlConfig(groups=dict(), host_auth=dict())
 
     def ensure_config_directory_exists(self) -> None:
@@ -62,6 +74,16 @@ class Config:
     def _resolve_ssh_value(
         self, value: str | int | list[str | int] | None, default: str | int = ""
     ) -> str | int:
+        """
+        Resolve a value from SSH config, handling lists and defaults.
+
+        Args:
+            value (str | int | list[str | int] | None): The value to resolve.
+            default (str | int): Default value if input is None or empty.
+
+        Returns:
+            str | int: The resolved value.
+        """
         if isinstance(value, list):
             return value[0] if value else default
         return value or default
@@ -243,6 +265,12 @@ class Config:
         ]
 
     def get_unconfigured_hosts(self) -> list[dict[str, str]]:
+        """
+        Get a list of hosts that do not have authentication configured.
+
+        Returns:
+            list[dict[str, str]]: List of dicts with alias and identity_file for unconfigured hosts.
+        """
         return [
             {"alias": host.alias, "identity_file": host.identity_file}
             for host in self.hosts
@@ -266,6 +294,12 @@ class Config:
         self._save_yaml()
 
     def save_host_auth(self, host_auth_details: dict[str, HostAuth]) -> None:
+        """
+        Save authentication details for hosts and update the YAML config file.
+
+        Args:
+            host_auth_details (dict[str, HostAuth]): Mapping of host aliases to HostAuth objects.
+        """
         self.config.host_auth = host_auth_details
         self._save_yaml()
 

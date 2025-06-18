@@ -185,9 +185,9 @@ class SSHClient:
                     conn_kwargs["client_keys"] = [host.identity_file]
                 else:
                     host_pass = self.get_host_pass(host.alias)
-                    if host_pass is not None:
+                    if host_pass:
                         host_auth = self.config.config.host_auth.get(host.alias, None)
-                        if host_auth is not None:
+                        if host_auth:
                             if host_auth.auth == "key":
                                 conn_kwargs["client_keys"] = [host.identity_file]
                                 conn_kwargs["passphrase"] = host_pass
@@ -287,9 +287,9 @@ class SSHClient:
                 conn_kwargs["client_keys"] = [host.identity_file]
             else:
                 host_pass = self.get_host_pass(host.alias)
-                if host_pass is not None:
+                if host_pass:
                     host_auth = self.config.config.host_auth.get(host.alias, None)
-                    if host_auth is not None:
+                    if host_auth:
                         if host_auth.auth == "key":
                             conn_kwargs["client_keys"] = [host.identity_file]
                             conn_kwargs["passphrase"] = host_pass
@@ -360,9 +360,9 @@ class SSHClient:
                 conn_kwargs["client_keys"] = [host.identity_file]
             else:
                 host_pass = self.get_host_pass(host.alias)
-                if host_pass is not None:
+                if host_pass:
                     host_auth = self.config.config.host_auth.get(host.alias, None)
-                    if host_auth is not None:
+                    if host_auth:
                         if host_auth.auth == "key":
                             conn_kwargs["client_keys"] = [host.identity_file]
                             conn_kwargs["passphrase"] = host_pass
